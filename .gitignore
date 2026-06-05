@@ -1,6 +1,5 @@
 node_modules/
 .env
-public/
 *.log
 find_users_temp.js
 test_edit.js
