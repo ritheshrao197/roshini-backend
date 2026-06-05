@@ -75,8 +75,10 @@ app.use("/api/signin", apiLimiter);
 app.use(morgan("dev"));
 app.use(cookieParser());
 
+const clientUrl = process.env.CLIENT_URL ? process.env.CLIENT_URL.replace(/\/$/, "") : "";
+
 const allowedOrigins = [
-  process.env.CLIENT_URL,
+  clientUrl,
   "http://localhost:3000",
   "http://localhost:3001",
   "http://localhost:3002",
@@ -92,7 +94,8 @@ const corsOptions = {
     
     const isAllowed = allowedOrigins.indexOf(origin) !== -1 || 
                       origin.startsWith("http://localhost:") || 
-                      origin.startsWith("http://127.0.0.1:");
+                      origin.startsWith("http://127.0.0.1:") ||
+                      origin.endsWith(".vercel.app");
                       
     if (isAllowed) {
       callback(null, true);
