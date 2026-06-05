@@ -1,8 +1,9 @@
+require("dotenv").config();
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const userModel = require("./models/users");
 
-const DATABASE = "mongodb://127.0.0.1:27017/ecommerce";
+const DATABASE = process.env.DATABASE || "mongodb://127.0.0.1:27017/ecommerce";
 
 mongoose.connect(DATABASE, {
   useNewUrlParser: true,
