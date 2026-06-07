@@ -59,7 +59,7 @@ mongoose
   .catch((err) => console.log("Database Not Connected !!!"));
 
 // Security Middlewares
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(mongoSanitize());
 
 // Rate Limiting
@@ -84,7 +84,7 @@ const allowedOrigins = [
   "http://localhost:3002",
   "http://127.0.0.1:3000",
   "http://127.0.0.1:3001",
-  "http://127.0.0.1:3002"
+  "http://127.0.0.1:3002",
 ].filter(Boolean);
 
 const corsOptions = {
