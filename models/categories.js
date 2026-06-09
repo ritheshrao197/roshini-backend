@@ -13,6 +13,10 @@ const categorySchema = new mongoose.Schema(
     cImage: {
       type: String,
     },
+    cloudinaryPublicId: {
+      type: String,
+      default: null,
+    },
     cStatus: {
       type: String,
       required: true,

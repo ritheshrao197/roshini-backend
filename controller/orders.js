@@ -1,5 +1,7 @@
 const orderModel = require("../models/orders");
 const productModel = require("../models/products");
+const userModel = require("../models/users");
+const EmailService = require("../services/emailService");
 
 class Order {
   async getAllOrders(req, res) {
@@ -91,6 +93,12 @@ class Order {
       });
       const save = await newOrder.save();
       if (save) {
+        // Fetch user email for notifications
+        const userObj = await userModel.findById(user);
+        if (userObj && userObj.email) {
+          EmailService.sendOrderConfirmation(userObj.email, save._id, amount);
+        }
+        EmailService.sendAdminNewOrderAlert("admin@roshinishomeproducts.com", save._id, amount);
         return res.json({ success: "Order created successfully", orderId: save._id });
       }
     } catch (err) {
@@ -107,9 +115,17 @@ class Order {
       let currentOrder = orderModel.findByIdAndUpdate(oId, {
         status: status,
         updatedAt: Date.now(),
-      });
-      currentOrder.exec((err, result) => {
+      }, { new: true });
+      currentOrder.exec(async (err, result) => {
         if (err) console.error("[OrderController] postUpdateOrder exec error:", err);
+        
+        if (status === "Shipped" && result) {
+          const userObj = await userModel.findById(result.user);
+          if (userObj && userObj.email) {
+            EmailService.sendOrderShipped(userObj.email, result._id);
+          }
+        }
+        
         return res.json({ success: "Order updated successfully" });
       });
     }

@@ -30,6 +30,18 @@ const couponSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    maxUses: {
+      type: Number,
+      default: null, // null means unlimited uses
+    },
+    usesCount: {
+      type: Number,
+      default: 0,
+    },
+    userEmail: {
+      type: String,
+      default: null, // if set, only this email can use it
+    },
   },
   { timestamps: true }
 );

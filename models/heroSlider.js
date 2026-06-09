@@ -41,6 +41,9 @@ const heroSliderSchema = new mongoose.Schema(
     startDate: { type: Date },
     endDate: { type: Date },
     
+    experimentId: { type: String, default: null }, // e.g., 'summer-2026-hero'
+    variant: { type: String, default: null }, // e.g., 'A', 'B'
+
     displayOrder: { type: Number, default: 0 },
   },
   { timestamps: true }

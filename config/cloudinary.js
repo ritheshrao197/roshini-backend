@@ -4,7 +4,6 @@ const multer = require("multer");
 
 let uploadMiddleware = null;
 
-// Configure Cloudinary only if credentials are set
 if (
   process.env.CLOUDINARY_CLOUD_NAME &&
   process.env.CLOUDINARY_API_KEY &&
@@ -28,17 +27,19 @@ if (
   uploadMiddleware = multer({ storage: storage });
   console.log("==============Cloudinary CDN Storage Initialized==============");
 } else {
-  // Graceful fallback to local disk storage
-  const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-      cb(null, "public/uploads/products");
-    },
-    filename: function (req, file, cb) {
-      cb(null, Date.now() + "_" + file.originalname);
-    },
-  });
-  uploadMiddleware = multer({ storage: storage });
-  console.warn("Cloudinary keys missing in .env. Falling back to local storage uploads.");
+  // If no credentials, configure a dummy middleware that errors out clearly
+  uploadMiddleware = (req, res, next) => {
+    return res.status(500).json({
+      error: "Cloudinary credentials missing. File uploads are disabled.",
+    });
+  };
+  uploadMiddleware.any = () => uploadMiddleware;
+  uploadMiddleware.single = () => uploadMiddleware;
+  uploadMiddleware.array = () => uploadMiddleware;
+  
+  console.error(
+    "[FATAL] Cloudinary keys missing in .env. Image uploads will fail."
+  );
 }
 
 module.exports = {

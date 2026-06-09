@@ -4,28 +4,17 @@ const path = require("path");
 
 class Product {
   // Delete Image from uploads -> products folder
-  static deleteImages(images, mode) {
-    if (!images || !Array.isArray(images) || images.length === 0) {
+  static deleteImages(publicIds) {
+    if (!publicIds || !Array.isArray(publicIds) || publicIds.length === 0) {
       return;
     }
-    var basePath =
-      path.resolve(__dirname + "../../") + "/public/uploads/products/";
-    for (var i = 0; i < images.length; i++) {
-      let rawName = mode == "file" ? images[i].filename : images[i];
-      if (!rawName) continue;
-
-       // Security fix: sanitize filename to prevent path traversal
-      let safeFileName = path.basename(rawName); 
-      let filePath = path.join(basePath, safeFileName);
-
-      if(!filePath.startsWith(basePath)){
-        console.log("Block path traversal attempt" , rawName)
-        continue;
-      }
-
-      fs.unlink(filePath, (err) => {
-        if (err) {
-          return err;
+    const { cloudinary } = require("../config/cloudinary");
+    for (let i = 0; i < publicIds.length; i++) {
+      let publicId = publicIds[i];
+      if (!publicId) continue;
+      cloudinary.uploader.destroy(publicId, (error, result) => {
+        if (error) {
+          console.error("[ProductController] Cloudinary delete error:", error);
         }
       });
     }
@@ -99,7 +88,7 @@ class Product {
 
     // Check if images exists and has at least 1 file
     if (!images || !Array.isArray(images) || images.length === 0) {
-      Product.deleteImages(images, "file");
+      if (images) Product.deleteImages(images.map((img) => img.filename));
       return res.json({ error: "Must need to provide at least 1 product image" });
     }
 
@@ -112,20 +101,22 @@ class Product {
       !pCategory ||
       !pStatus
     ) {
-      Product.deleteImages(images, "file");
+      Product.deleteImages(images.map((img) => img.filename));
       return res.json({ error: "All required basic fields must be provided" });
     }
     // Validate Name and description
     else if (pName.length > 255 || pDescription.length > 3000) {
-      Product.deleteImages(images, "file");
+      Product.deleteImages(images.map((img) => img.filename));
       return res.json({
         error: "Name 255 & Description must not be 3000 characters long",
       });
     } else {
       try {
         let allImages = [];
+        let allPublicIds = [];
         for (const img of images) {
-          allImages.push(img.filename);
+          allImages.push(img.path);
+          allPublicIds.push(img.filename);
         }
 
         // Auto-generate slug if not provided
@@ -139,13 +130,14 @@ class Product {
         if (sku) {
           let skuExist = await productModel.findOne({ sku });
           if (skuExist) {
-            Product.deleteImages(images, "file");
+            Product.deleteImages(images.map((img) => img.filename));
             return res.json({ error: "SKU already exists" });
           }
         }
 
         let newProduct = new productModel({
           pImages: allImages,
+          pImagePublicIds: allPublicIds,
           pName,
           pDescription,
           pPrice: Number(pPrice),
@@ -198,7 +190,7 @@ class Product {
         }
       } catch (err) {
         console.error("[ProductController] postAddProduct error:", err);
-        Product.deleteImages(images, "file");
+        if (images) Product.deleteImages(images.map((img) => img.filename));
         return res.json({ error: "Error occurred while saving product" });
       }
     }
@@ -350,12 +342,15 @@ class Product {
 
       if (editImages && editImages.length > 0) {
         let allEditImages = [];
+        let allEditPublicIds = [];
         for (const img of editImages) {
-          allEditImages.push(img.filename);
+          allEditImages.push(img.path);
+          allEditPublicIds.push(img.filename);
         }
         editData.pImages = allEditImages;
-        if (pImages) {
-          Product.deleteImages(pImages.split(","), "string");
+        editData.pImagePublicIds = allEditPublicIds;
+        if (existingProduct.pImagePublicIds && existingProduct.pImagePublicIds.length > 0) {
+          Product.deleteImages(existingProduct.pImagePublicIds);
         }
       }
 

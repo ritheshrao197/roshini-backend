@@ -1,6 +1,6 @@
 const { toTitleCase } = require("../config/function");
 const categoryModel = require("../models/categories");
-const fs = require("fs");
+const { cloudinary } = require("../config/cloudinary");
 
 class Category {
   async getAllCategory(req, res) {
@@ -10,7 +10,7 @@ class Category {
         return res.json({ Categories });
       }
     } catch (err) {
-      console.log(err);
+      console.error("[CategoryController] getAllCategory error:", err);
     }
   }
 
@@ -21,33 +21,34 @@ class Category {
       return res.status(400).json({ error: "Category image file is required" });
     }
 
-    let cImage = req.file.filename;
-    const filePath = `../server/public/uploads/categories/${cImage}`;
+    let cImage = req.file.path; // Cloudinary URL
+    let cloudinaryPublicId = req.file.filename; // Cloudinary Public ID
+
+    const deleteUploadedImage = () => {
+      if (cloudinaryPublicId) {
+        cloudinary.uploader.destroy(cloudinaryPublicId, (error) => {
+          if (error) console.error("[CategoryController] Cloudinary delete error:", error);
+        });
+      }
+    };
 
     if (!cName || !cDescription || !cStatus) {
-      fs.unlink(filePath, (err) => {
-        if (err) {
-          console.log(err);
-        }
-        return res.status(400).json({ error: "All fields are required" });
-      });
+      deleteUploadedImage();
+      return res.status(400).json({ error: "All fields are required" });
     } else {
       cName = toTitleCase(cName);
       try {
         let checkCategoryExists = await categoryModel.findOne({ cName: cName });
         if (checkCategoryExists) {
-          fs.unlink(filePath, (err) => {
-            if (err) {
-              console.log(err);
-            }
-            return res.json({ error: "Category already exists" });
-          });
+          deleteUploadedImage();
+          return res.json({ error: "Category already exists" });
         } else {
           let newCategory = new categoryModel({
             cName,
             cDescription,
             cStatus,
             cImage,
+            cloudinaryPublicId,
           });
           await newCategory.save((err) => {
             if (!err) {
@@ -56,7 +57,9 @@ class Category {
           });
         }
       } catch (err) {
-        console.log(err);
+        console.error("[CategoryController] postAddCategory error:", err);
+        deleteUploadedImage();
+        return res.status(500).json({ error: "Server error" });
       }
     }
   }
@@ -77,7 +80,7 @@ class Category {
         return res.json({ success: "Category edit successfully" });
       }
     } catch (err) {
-      console.log(err);
+      console.error("[CategoryController] postEditCategory error:", err);
     }
   }
 
@@ -88,20 +91,19 @@ class Category {
     } else {
       try {
         let deletedCategoryFile = await categoryModel.findById(cId);
-        const filePath = `../server/public/uploads/categories/${deletedCategoryFile.cImage}`;
-
         let deleteCategory = await categoryModel.findByIdAndDelete(cId);
+        
         if (deleteCategory) {
-          // Delete Image from uploads -> categories folder 
-          fs.unlink(filePath, (err) => {
-            if (err) {
-              console.log(err);
-            }
-            return res.json({ success: "Category deleted successfully" });
-          });
+          // Delete Image from Cloudinary
+          if (deletedCategoryFile && deletedCategoryFile.cloudinaryPublicId) {
+            cloudinary.uploader.destroy(deletedCategoryFile.cloudinaryPublicId, (error) => {
+              if (error) console.error("[CategoryController] Cloudinary delete error:", error);
+            });
+          }
+          return res.json({ success: "Category deleted successfully" });
         }
       } catch (err) {
-        console.log(err);
+        console.error("[CategoryController] getDeleteCategory error:", err);
       }
     }
   }

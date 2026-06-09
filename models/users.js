@@ -41,6 +41,52 @@ const userSchema = new mongoose.Schema(
       type: Array,
       default: [],
     },
+    
+    // ── User Profile Extensions ──
+    profileImageUrl: {
+      type: String,
+      default: null,
+    },
+    profileImagePublicId: {
+      type: String,
+      default: null,
+    },
+    addresses: [
+      {
+        fullName: String,
+        mobileNumber: String,
+        alternateMobile: String,
+        addressLine1: String,
+        addressLine2: String,
+        landmark: String,
+        city: String,
+        state: String,
+        pincode: String,
+        country: { type: String, default: "India" },
+        isDefault: { type: Boolean, default: false },
+        type: { type: String, enum: ["Home", "Office", "Other"], default: "Home" }
+      }
+    ],
+    preferences: {
+      preferredLanguage: { type: String, default: "English" },
+      theme: { type: String, default: "System Default" },
+      interests: { type: [String], default: [] },
+      dietaryPreferences: { type: [String], default: [] },
+      marketingConsent: { type: Boolean, default: true }
+    },
+    notifications: {
+      email: {
+        orders: { type: Boolean, default: true },
+        promotions: { type: Boolean, default: true },
+        newsletter: { type: Boolean, default: true }
+      },
+      sms: {
+        orders: { type: Boolean, default: true }
+      },
+      whatsapp: {
+        orders: { type: Boolean, default: false }
+      }
+    },
 
     // ── RBAC Extension (added incrementally — userRole kept for backward compat) ──
     role: {

@@ -1,6 +1,8 @@
 const orderModel = require("../models/orders");
 const productModel = require("../models/products");
 const couponModel = require("../models/coupon");
+const emailLogModel = require("../models/emailLogs");
+const { cloudinary } = require("../config/cloudinary");
 
 class AdminController {
   // 1. DASHBOARD ANALYTICS & REVENUE OVERVIEW
@@ -136,8 +138,41 @@ class AdminController {
       res.setHeader("Content-Disposition", "attachment; filename=roshinis_orders_report.csv");
       return res.status(200).send(csvContent);
     } catch (err) {
-      console.error("CSV Export Error:", err);
       return res.status(500).json({ error: "Failed to export orders to CSV" });
+    }
+  }
+
+  // 5. EMAIL LOGS
+  async getEmailLogs(req, res) {
+    try {
+      const logs = await emailLogModel.find({}).sort({ createdAt: -1 }).limit(100);
+      return res.status(200).json({ success: true, logs });
+    } catch (err) {
+      console.error("Fetch Email Logs Error:", err);
+      return res.status(500).json({ error: "Failed to fetch email logs" });
+    }
+  }
+
+  // 6. MEDIA MANAGEMENT (Cloudinary)
+  async getCloudinaryMedia(req, res) {
+    try {
+      const result = await cloudinary.api.resources({ max_results: 100 });
+      return res.status(200).json({ success: true, resources: result.resources });
+    } catch (err) {
+      console.error("Fetch Media Error:", err);
+      return res.status(500).json({ error: "Failed to fetch media assets" });
+    }
+  }
+
+  async deleteCloudinaryMedia(req, res) {
+    const { public_id } = req.body;
+    if (!public_id) return res.status(400).json({ error: "public_id is required" });
+    try {
+      await cloudinary.uploader.destroy(public_id);
+      return res.status(200).json({ success: "Media deleted successfully" });
+    } catch (err) {
+      console.error("Delete Media Error:", err);
+      return res.status(500).json({ error: "Failed to delete media asset" });
     }
   }
 }

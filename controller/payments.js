@@ -2,6 +2,8 @@ const crypto = require("crypto");
 const axios = require("axios");
 const orderModel = require("../models/orders");
 const paymentModel = require("../models/payment");
+const userModel = require("../models/users");
+const EmailService = require("../services/emailService");
 
 /* ── Helpers ────────────────────────────────────────────────────── */
 
@@ -214,8 +216,19 @@ class PaymentController {
         order.paymentStatus = "Paid";
         order.status        = "Processing";
         order.gatewayResponse = statusData;
+
+        const userObj = await userModel.findById(order.user);
+        if (userObj && userObj.email) {
+          EmailService.sendPaymentSuccess(userObj.email, txnId, order.amount);
+          EmailService.sendOrderConfirmation(userObj.email, order._id, order.amount);
+        }
+        EmailService.sendAdminNewOrderAlert("admin@roshinishomeproducts.com", order._id, order.amount);
       } else if (isFailed) {
         order.paymentStatus = "Failed";
+        const userObj = await userModel.findById(order.user);
+        if (userObj && userObj.email) {
+          EmailService.sendPaymentFailed(userObj.email, txnId);
+        }
       }
       await order.save();
 
@@ -296,9 +309,21 @@ class PaymentController {
         order.paymentStatus   = "Paid";
         order.status          = "Processing";
         order.gatewayResponse = decoded;
+        
+        const userObj = await userModel.findById(order.user);
+        if (userObj && userObj.email) {
+          EmailService.sendPaymentSuccess(userObj.email, merchantTransactionId, order.amount);
+          EmailService.sendOrderConfirmation(userObj.email, order._id, order.amount);
+        }
+        EmailService.sendAdminNewOrderAlert("admin@roshinishomeproducts.com", order._id, order.amount);
       } else {
         order.paymentStatus   = "Failed";
         order.gatewayResponse = decoded;
+
+        const userObj = await userModel.findById(order.user);
+        if (userObj && userObj.email) {
+          EmailService.sendPaymentFailed(userObj.email, merchantTransactionId);
+        }
       }
       await order.save();
 

@@ -27,9 +27,56 @@ class SliderController {
         .lean()
         .exec();
 
+      // Filter active sliders
+      let activeSliders = [];
+      const experimentGroups = {};
+
+      for (let slide of sliders) {
+        if (slide.experimentId) {
+          if (!experimentGroups[slide.experimentId]) {
+            experimentGroups[slide.experimentId] = [];
+          }
+          experimentGroups[slide.experimentId].push(slide);
+        } else {
+          activeSliders.push(slide);
+        }
+      }
+
+      // Check cookie for ab_variant
+      let abVariant = req.cookies && req.cookies.ab_variant ? req.cookies.ab_variant : null;
+      let newVariantSet = false;
+
+      // Process experiments
+      for (const [expId, variants] of Object.entries(experimentGroups)) {
+        if (variants.length === 0) continue;
+        
+        let selectedVariant = null;
+        if (abVariant) {
+          selectedVariant = variants.find(v => v.variant === abVariant);
+        }
+        
+        if (!selectedVariant) {
+          // Pseudo-random selection if cookie variant doesn't exist in this experiment
+          selectedVariant = variants[Math.floor(Math.random() * variants.length)];
+          // Only set new variant if we don't already have one, or if we want to overwrite
+          // To keep it simple, if no cookie existed, we set it to this newly picked variant
+          if (!abVariant && selectedVariant.variant) {
+            abVariant = selectedVariant.variant;
+            newVariantSet = true;
+          }
+        }
+        
+        if (selectedVariant) {
+          activeSliders.push(selectedVariant);
+        }
+      }
+
+      // Sort final active sliders by display order
+      activeSliders.sort((a, b) => a.displayOrder - b.displayOrder);
+
       // Populate referenceId manually for products and achievements
-      for (let i = 0; i < sliders.length; i++) {
-        let slide = sliders[i];
+      for (let i = 0; i < activeSliders.length; i++) {
+        let slide = activeSliders[i];
         if (slide.type === "product" && slide.referenceId) {
           const prod = await productModel.findById(slide.referenceId).select("pName pPrice pImages slug").lean();
           if (prod) slide.productData = prod;
@@ -39,7 +86,11 @@ class SliderController {
         }
       }
 
-      return res.json({ sliders });
+      if (newVariantSet) {
+        res.cookie('ab_variant', abVariant, { maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: true, sameSite: 'lax' });
+      }
+
+      return res.json({ sliders: activeSliders });
     } catch (err) {
       console.log("getActiveSliders error:", err);
       return res.status(500).json({ error: "Internal server error" });

@@ -2,6 +2,7 @@ const { toTitleCase, validateEmail } = require("../config/function");
 const bcrypt = require("bcryptjs");
 const userModel = require("../models/users");
 const jwt = require("jsonwebtoken");
+const EmailService = require("../services/emailService");
 const { JWT_SECRET } = require("../config/keys");
 const logAudit = require("../config/auditLogger");
 
@@ -72,11 +73,12 @@ class Auth {
                 email,
                 password,
                 // ========= Here role 1 for admin signup role 0 for customer signup =========
-                userRole: 1,
+                userRole: 0,
               });
               newUser
                 .save()
                 .then((data) => {
+                  EmailService.sendWelcomeEmail(data.email, data.name);
                   return res.json({
                     success: "Account create successfully. Please login",
                   });

@@ -11,7 +11,6 @@ const morgan = require("morgan");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const helmet = require("helmet");
-const rateLimit = require("express-rate-limit");
 const mongoSanitize = require("express-mongo-sanitize");
 
 // Import Router
@@ -31,6 +30,11 @@ const achievementRouter = require("./routes/achievements");
 const adminAchievementRouter = require("./routes/adminAchievements");
 const sliderRouter = require("./routes/sliders");
 const adminSliderRouter = require("./routes/adminSliders");
+const websiteSectionsRouter = require("./routes/websiteSections");
+const sectionRouter = require("./routes/websiteSections");
+const subscriberRouter = require("./routes/subscribers");
+const accountRouter = require("./routes/account");
+const newsletterRouter = require("./routes/newsletter");
 // Import Auth middleware for check user login or not~
 const { loginCheck } = require("./middleware/auth");
 const CreateAllFolder = require("./config/uploadFolderCreateScript");
@@ -56,15 +60,6 @@ mongoose
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(mongoSanitize());
 
-// Rate Limiting
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per window
-  message: { error: "Too many requests from this IP, please try again later." },
-});
-app.use("/api/signup", apiLimiter);
-app.use("/api/signin", apiLimiter);
-
 // Middleware
 app.use(morgan("dev"));
 app.use(cookieParser());
@@ -89,6 +84,7 @@ const corsOptions = {
     const isAllowed = allowedOrigins.indexOf(origin) !== -1 || 
                       origin.startsWith("http://localhost:") || 
                       origin.startsWith("http://127.0.0.1:") ||
+                      origin.startsWith("http://192.168.") ||
                       origin.endsWith(".vercel.app");
                       
     if (isAllowed) {
@@ -113,6 +109,10 @@ app.use("/api/user", usersRouter);
 app.use("/api/category", categoryRouter);
 app.use("/api/product", productRouter);
 app.use("/api", brainTreeRouter);
+app.use("/api/account", accountRouter);
+app.use("/api/sliders", sliderRouter);
+app.use("/api/sections", sectionRouter);
+app.use("/api/subscribers", subscriberRouter);
 app.use("/api/order", orderRouter);
 app.use("/api/customize", customizeRouter);
 app.use("/api/payment", paymentRouter);
@@ -123,7 +123,9 @@ app.use("/api", achievementRouter);
 app.use("/api", adminAchievementRouter);
 app.use("/api", sliderRouter);
 app.use("/api", adminSliderRouter);
+app.use("/api", websiteSectionsRouter);
 app.use("/api", userManagementRouter); // RBAC & User Management
+app.use("/api/newsletter", newsletterRouter);
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error("Global Error Caught:", err);

@@ -23,25 +23,29 @@ exports.loginCheck = (req, res, next) => {
 
 exports.isAuth = (req, res, next) => {
   let { loggedInUserId } = req.body;
+  if (!loggedInUserId && req.method !== "GET" && req.method !== "DELETE") {
+    // Some older POST/PUT routes might rely on loggedInUserId, but for GET/DELETE it's usually empty.
+    // We'll just check if loggedInUserId is provided and doesn't match the token.
+  }
+  
   if (
-    !loggedInUserId ||
-    !req.userDetails._id ||
-    loggedInUserId != req.userDetails._id
+    loggedInUserId && 
+    (!req.userDetails._id || loggedInUserId != req.userDetails._id)
   ) {
-    res.status(403).json({ error: "You are not authenticate" });
+    return res.status(403).json({ error: "You are not authenticated" });
   }
   next();
 };
 
 exports.isAdmin = async (req, res, next) => {
   try {
-    let reqUser = await userModel.findById(req.body.loggedInUserId);
+    let reqUser = await userModel.findById(req.body.loggedInUserId || req.userDetails._id);
     // If user role 0 that's mean not admin it's customer
-    if (reqUser.userRole === 0) {
-      res.status(403).json({ error: "Access denied" });
+    if (!reqUser || reqUser.userRole === 0) {
+      return res.status(403).json({ error: "Access denied" });
     }
     next();
   } catch {
-    res.status(404);
+    return res.status(404).json({ error: "User not found" });
   }
 };
