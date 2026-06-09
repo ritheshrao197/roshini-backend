@@ -110,7 +110,6 @@ class PaymentController {
       );
 
       const phonePeData = phonePeRes.data;
-      console.log("PhonePe initiation response:", JSON.stringify(phonePeData));
 
       // 1e. Update audit log with raw response
       paymentRecord.rawResponse = phonePeData;
@@ -189,7 +188,6 @@ class PaymentController {
       });
 
       const statusData = statusRes.data;
-      console.log("PhonePe status response:", JSON.stringify(statusData));
 
       const isSuccess  = statusData?.code === "PAYMENT_SUCCESS";
       const isFailed   = ["PAYMENT_ERROR", "PAYMENT_CANCELLED", "TIMED_OUT"].includes(statusData?.code);
@@ -274,7 +272,6 @@ class PaymentController {
 
       // 3b. Decode Base64 payload
       const decoded = JSON.parse(Buffer.from(response, "base64").toString("utf-8"));
-      console.log("PhonePe Webhook payload:", JSON.stringify(decoded));
 
       const { merchantTransactionId, transactionId: phonePeTxnId } = decoded?.data || {};
       const isSuccess = decoded?.code === "PAYMENT_SUCCESS";
@@ -332,8 +329,8 @@ class PaymentController {
 
     try {
       const txnid       = `TXN-PU-${Date.now()}-${Math.floor(Math.random() * 9999)}`;
-      const key         = process.env.PAYU_MERCHANT_KEY || "MOCK_KEY";
-      const salt        = process.env.PAYU_SALT || "MOCK_SALT";
+      const key         = process.env.PAYU_MERCHANT_KEY || "";
+      const salt        = process.env.PAYU_SALT || "";
       const productinfo = "Roshinis Home Products Purchase";
       const firstname   = user.name  || "Customer";
       const email       = user.email || "customer@example.com";

@@ -5,14 +5,12 @@ const userModel = require("../models/users");
 exports.loginCheck = (req, res, next) => {
   try {
     let token = req.cookies.token || req.headers.token;
-    console.log("loginCheck token:", token);
     if (!token) {
-      console.log("No token provided");
+      console.warn("loginCheck: No token provided");
       return res.status(401).json({ error: "You must be logged in" });
     }
     token = token.replace("Bearer ", "");
     const decode = jwt.verify(token, JWT_SECRET);
-    console.log("Token decoded successfully for user:", decode._id);
     req.userDetails = decode;
     next();
   } catch (err) {

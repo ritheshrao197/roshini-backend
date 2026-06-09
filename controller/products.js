@@ -10,7 +10,6 @@ class Product {
     }
     var basePath =
       path.resolve(__dirname + "../../") + "/public/uploads/products/";
-    console.log(basePath);
     for (var i = 0; i < images.length; i++) {
       let rawName = mode == "file" ? images[i].filename : images[i];
       if (!rawName) continue;
@@ -42,7 +41,7 @@ class Product {
         return res.json({ Products });
       }
     } catch (err) {
-      console.log(err);
+      console.error("[ProductController] getAllProduct error:", err);
     }
   }
 
@@ -198,7 +197,7 @@ class Product {
           return res.json({ success: "Product created successfully" });
         }
       } catch (err) {
-        console.log(err);
+        console.error("[ProductController] postAddProduct error:", err);
         Product.deleteImages(images, "file");
         return res.json({ error: "Error occurred while saving product" });
       }
@@ -378,7 +377,7 @@ class Product {
       }
       return res.json({ error: "Product not found during update" });
     } catch (err) {
-      console.log(err);
+      console.error("[ProductController] postEditProduct error:", err);
       return res.json({ error: "Error updating product details: " + err.message });
     }
   }
@@ -403,7 +402,7 @@ class Product {
           return res.json({ success: "Product deleted successfully" });
         }
       } catch (err) {
-        console.log(err);
+        console.error("[ProductController] getDeleteProduct error:", err);
       }
     }
   }
@@ -428,7 +427,7 @@ class Product {
           return res.json({ success: "Product restored successfully" });
         }
       } catch (err) {
-        console.log(err);
+        console.error("[ProductController] postRestoreProduct error:", err);
       }
     }
   }
@@ -447,7 +446,7 @@ class Product {
           return res.json({ Product: singleProduct });
         }
       } catch (err) {
-        console.log(err);
+        console.error("[ProductController] getSingleProduct error:", err);
       }
     }
   }
@@ -548,7 +547,7 @@ class Product {
               });
               newRatingReview.exec((err, result) => {
                 if (err) {
-                  console.log(err);
+                  console.error("[ProductController] postAddReview error:", err);
                 }
                 return res.json({ success: "Thanks for your review" });
               });
@@ -566,7 +565,7 @@ class Product {
           });
           newRatingReview.exec((err, result) => {
             if (err) {
-              console.log(err);
+              console.error("[ProductController] postAddReview error:", err);
             }
             return res.json({ success: "Thanks for your review" });
           });
@@ -588,12 +587,12 @@ class Product {
         });
         reviewDelete.exec((err, result) => {
           if (err) {
-            console.log(err);
+            console.error("[ProductController] deleteReview execute error:", err);
           }
           return res.json({ success: "Your review is deleted" });
         });
       } catch (err) {
-        console.log(err);
+        console.error("[ProductController] deleteReview catch error:", err);
       }
     }
   }

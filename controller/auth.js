@@ -72,7 +72,7 @@ class Auth {
                 email,
                 password,
                 // ========= Here role 1 for admin signup role 0 for customer signup =========
-                userRole: 1, // Field Name change to userRole from role
+                userRole: 1,
               });
               newUser
                 .save()
@@ -82,11 +82,11 @@ class Auth {
                   });
                 })
                 .catch((err) => {
-                  console.log(err);
+                  console.error("[AuthController] Signup save error:", err);
                 });
             }
           } catch (err) {
-            console.log(err);
+            console.error("[AuthController] Signup error:", err);
           }
         }
       } else {
@@ -178,7 +178,7 @@ class Auth {
         });
       }
     } catch (err) {
-      console.log(err);
+      console.error("[AuthController] Signin error:", err);
     }
   }
 

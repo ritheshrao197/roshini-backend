@@ -1,11 +1,5 @@
-const mongoose = require("mongoose");
-try {
-  mongoose.connect("mongodb://localhost:27017/Ecommerce", {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    useCreateIndex: true,
-  });
-  console.log("Database Connected Successfully");
-} catch (err) {
-  console.log("Database Not Connected");
-}
+/**
+ * @deprecated Database connection is handled in app.js
+ * This file is kept empty to preserve any existing import paths 
+ * without executing a duplicate hardcoded DB connection.
+ */

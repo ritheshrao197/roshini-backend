@@ -13,7 +13,7 @@ class User {
         return res.json({ Users });
       }
     } catch (err) {
-      console.log(err);
+      console.error("[UserController] getAllUser error:", err);
     }
   }
 
@@ -30,7 +30,7 @@ class User {
           return res.json({ User });
         }
       } catch (err) {
-        console.log(err);
+        console.error("[UserController] getSingleUser error:", err);
       }
     }
   }
@@ -77,7 +77,7 @@ class User {
         updatedAt: Date.now(),
       });
       currentUser.exec((err, result) => {
-        if (err) console.log(err);
+        if (err) console.error("[UserController] postEditUser exec error:", err);
         return res.json({ success: "User updated successfully" });
       });
     }
@@ -93,7 +93,7 @@ class User {
         updatedAt: Date.now(),
       });
       currentUser.exec((err, result) => {
-        if (err) console.log(err);
+        if (err) console.error("[UserController] getDeleteUser exec error:", err);
         return res.json({ success: "User updated successfully" });
       });
     }
@@ -117,7 +117,7 @@ class User {
             password: newPassword,
           });
           passChange.exec((err, result) => {
-            if (err) console.log(err);
+            if (err) console.error("[UserController] changePassword exec error:", err);
             return res.json({ success: "Password updated successfully" });
           });
         } else {

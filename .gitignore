@@ -3,3 +3,7 @@ node_modules/
 *.log
 find_users_temp.js
 test_edit.js
+seed.js
+.DS_Store
+.vscode/
+.idea/

@@ -13,7 +13,7 @@ class Order {
         return res.json({ Orders });
       }
     } catch (err) {
-      console.log(err);
+      console.error("[OrderController] getAllOrders error:", err);
     }
   }
 
@@ -32,7 +32,7 @@ class Order {
           return res.json({ Order });
         }
       } catch (err) {
-        console.log(err);
+        console.error("[OrderController] getOrderByUser error:", err);
       }
     }
   }
@@ -109,7 +109,7 @@ class Order {
         updatedAt: Date.now(),
       });
       currentOrder.exec((err, result) => {
-        if (err) console.log(err);
+        if (err) console.error("[OrderController] postUpdateOrder exec error:", err);
         return res.json({ success: "Order updated successfully" });
       });
     }
@@ -126,7 +126,7 @@ class Order {
           return res.json({ success: "Order deleted successfully" });
         }
       } catch (error) {
-        console.log(error);
+        console.error("[OrderController] postDeleteOrder error:", error);
       }
     }
   }
