@@ -37,6 +37,12 @@ const usersRouter = require("./routes/users");
 const customizeRouter = require("./routes/customize");
 const paymentRouter = require("./routes/payments");
 const adminRouter = require("./routes/admin");
+const vlogRouter = require("./routes/vlogs");
+const adminVlogRouter = require("./routes/adminVlogs");
+const achievementRouter = require("./routes/achievements");
+const adminAchievementRouter = require("./routes/adminAchievements");
+const sliderRouter = require("./routes/sliders");
+const adminSliderRouter = require("./routes/adminSliders");
 // Import Auth middleware for check user login or not~
 const { loginCheck } = require("./middleware/auth");
 const CreateAllFolder = require("./config/uploadFolderCreateScript");
@@ -123,6 +129,12 @@ app.use("/api/order", orderRouter);
 app.use("/api/customize", customizeRouter);
 app.use("/api/payment", paymentRouter);
 app.use("/api", adminRouter);
+app.use("/api", vlogRouter);
+app.use("/api", adminVlogRouter);
+app.use("/api", achievementRouter);
+app.use("/api", adminAchievementRouter);
+app.use("/api", sliderRouter);
+app.use("/api", adminSliderRouter);
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error("Global Error Caught:", err);

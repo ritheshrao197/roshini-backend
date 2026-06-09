@@ -9,14 +9,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/hasan-py/MERN_Stack_Project_Hayroo_Ecommerce"
+    "url": "https://github.com/Rithesh-py/MERN_Stack_Project_Hayroo_Ecommerce"
   },
-  "author": "Hasan | https://hasan-py.github.io",
+  "author": "Rithesh | https://Rithesh-py.github.io",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/hasan-py/MERN_Stack_Project_Hayroo_Ecommerce/issues"
+    "url": "https://github.com/Rithesh-py/MERN_Stack_Project_Hayroo_Ecommerce/issues"
   },
-  "homepage": "https://github.com/hasan-py/MERN_Stack_Project_Hayroo_Ecommerce#readme",
+  "homepage": "https://github.com/Rithesh-py/MERN_Stack_Project_Hayroo_Ecommerce#readme",
   "dependencies": {
     "axios": "^1.16.1",
     "bcryptjs": "^2.4.3",
