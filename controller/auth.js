@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const userModel = require("../models/users");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = require("../config/keys");
+const logAudit = require("../config/auditLogger");
 
 class Auth {
   async isAdmin(req, res) {
@@ -114,33 +115,67 @@ class Auth {
         return res.json({
           error: "Invalid email or password",
         });
+      }
+
+      // ── RBAC: Block check ──
+      if (data.status === "blocked") {
+        await logAudit({
+          adminId: data._id,
+          action: "LOGIN_FAILED",
+          entityType: "user",
+          entityId: data._id,
+          oldValue: null,
+          newValue: { reason: "account_blocked" },
+        });
+        return res.json({
+          error: "Your account has been blocked. Please contact support.",
+        });
+      }
+
+      const login = await bcrypt.compare(password, data.password);
+      if (login) {
+        // ── RBAC: Determine effective role for JWT payload ──
+        const effectiveRole = data.role && data.role !== "customer"
+          ? data.role
+          : data.userRole === 1
+          ? "super_admin"
+          : "customer";
+
+        const token = jwt.sign(
+          { _id: data._id, role: data.userRole, rbacRole: effectiveRole },
+          JWT_SECRET,
+          { expiresIn: "7d" }
+        );
+        const encode = jwt.verify(token, JWT_SECRET);
+
+        // ── RBAC: Record lastLogin ──
+        await userModel.findByIdAndUpdate(data._id, { lastLogin: new Date() });
+
+        await logAudit({
+          adminId: data._id,
+          action: "LOGIN",
+          entityType: "user",
+          entityId: data._id,
+          oldValue: null,
+          newValue: { role: effectiveRole },
+        });
+
+        // Set secure HTTP-only cookie
+        res.cookie("token", token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "strict",
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        });
+
+        return res.json({
+          token: token,
+          user: encode,
+        });
       } else {
-        const login = await bcrypt.compare(password, data.password);
-        if (login) {
-          const token = jwt.sign(
-            { _id: data._id, role: data.userRole },
-            JWT_SECRET,
-            { expiresIn: "7d" }
-          );
-          const encode = jwt.verify(token, JWT_SECRET);
-
-          // Set secure HTTP-only cookie
-          res.cookie("token", token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-          });
-
-          return res.json({
-            token: token,
-            user: encode,
-          });
-        } else {
-          return res.json({
-            error: "Invalid email or password",
-          });
-        }
+        return res.json({
+          error: "Invalid email or password",
+        });
       }
     } catch (err) {
       console.log(err);

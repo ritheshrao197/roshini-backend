@@ -41,6 +41,37 @@ const userSchema = new mongoose.Schema(
       type: Array,
       default: [],
     },
+
+    // ── RBAC Extension (added incrementally — userRole kept for backward compat) ──
+    role: {
+      type: String,
+      enum: [
+        "customer",
+        "super_admin",
+        "order_manager",
+        "inventory_manager",
+        "content_manager",
+        "marketing_manager",
+      ],
+      default: "customer",
+    },
+    status: {
+      type: String,
+      enum: ["active", "inactive", "blocked"],
+      default: "active",
+    },
+    lastLogin: {
+      type: Date,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "users",
+      default: null,
+    },
+    permissions: {
+      type: [String],
+      default: [],
+    },
   },
   { timestamps: true }
 );

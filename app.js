@@ -37,6 +37,7 @@ const usersRouter = require("./routes/users");
 const customizeRouter = require("./routes/customize");
 const paymentRouter = require("./routes/payments");
 const adminRouter = require("./routes/admin");
+const userManagementRouter = require("./routes/userManagement");
 const vlogRouter = require("./routes/vlogs");
 const adminVlogRouter = require("./routes/adminVlogs");
 const achievementRouter = require("./routes/achievements");
@@ -135,6 +136,7 @@ app.use("/api", achievementRouter);
 app.use("/api", adminAchievementRouter);
 app.use("/api", sliderRouter);
 app.use("/api", adminSliderRouter);
+app.use("/api", userManagementRouter); // RBAC & User Management
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error("Global Error Caught:", err);
