@@ -7,7 +7,7 @@ exports.loginCheck = (req, res, next) => {
     let token = req.cookies.token || req.headers.token;
     if (!token) {
       console.warn("loginCheck: No token provided");
-      return res.status(401).json({ error: "You must be logged in" });
+      return res.status(401).json({ error: "You must be logged in", code: "UNAUTHORIZED" });
     }
     token = token.replace("Bearer ", "");
     const decode = jwt.verify(token, JWT_SECRET);
@@ -15,8 +15,15 @@ exports.loginCheck = (req, res, next) => {
     next();
   } catch (err) {
     console.error("JWT Verify Error:", err.message);
-    res.status(401).json({
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({
+        error: "Access token has expired",
+        code: "TOKEN_EXPIRED",
+      });
+    }
+    return res.status(401).json({
       error: "You must be logged in",
+      code: "UNAUTHORIZED",
     });
   }
 };

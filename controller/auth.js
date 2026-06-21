@@ -5,6 +5,8 @@ const jwt = require("jsonwebtoken");
 const EmailService = require("../services/emailService");
 const { JWT_SECRET } = require("../config/keys");
 const logAudit = require("../config/auditLogger");
+const refreshTokenModel = require("../models/refreshToken");
+const crypto = require("crypto");
 
 class Auth {
   async isAdmin(req, res) {
@@ -143,12 +145,23 @@ class Auth {
           ? "super_admin"
           : "customer";
 
-        const token = jwt.sign(
+        // Generate Access Token (15 mins)
+        const accessToken = jwt.sign(
           { _id: data._id, role: data.userRole, rbacRole: effectiveRole },
           JWT_SECRET,
-          { expiresIn: "7d" }
+          { expiresIn: "15m" }
         );
-        const encode = jwt.verify(token, JWT_SECRET);
+        const encode = jwt.verify(accessToken, JWT_SECRET);
+
+        // Generate Refresh Token (7 days)
+        const newRefreshToken = crypto.randomBytes(40).toString("hex");
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7);
+        await refreshTokenModel.create({
+          token: newRefreshToken,
+          userId: data._id,
+          expiresAt,
+        });
 
         // ── RBAC: Record lastLogin ──
         await userModel.findByIdAndUpdate(data._id, { lastLogin: new Date() });
@@ -162,16 +175,28 @@ class Auth {
           newValue: { role: effectiveRole },
         });
 
-        // Set secure HTTP-only cookie
-        res.cookie("token", token, {
+        // Cookie Configuration
+        const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
+        const secureCookie = process.env.NODE_ENV === "production";
+
+        res.cookie("token", accessToken, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "strict",
-          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+          secure: secureCookie,
+          sameSite: "lax",
+          domain: cookieDomain,
+          maxAge: 15 * 60 * 1000,
+        });
+
+        res.cookie("refreshToken", newRefreshToken, {
+          httpOnly: true,
+          secure: secureCookie,
+          sameSite: "lax",
+          domain: cookieDomain,
+          maxAge: 7 * 24 * 60 * 60 * 1000,
         });
 
         return res.json({
-          token: token,
+          token: accessToken,
           user: encode,
         });
       } else {
@@ -184,8 +209,95 @@ class Auth {
     }
   }
 
+  async refreshTokenRotate(req, res) {
+    const { refreshToken } = req.cookies;
+    if (!refreshToken) {
+      return res.status(401).json({ error: "Refresh token required", code: "REFRESH_TOKEN_REQUIRED" });
+    }
+
+    try {
+      const storedToken = await refreshTokenModel.findOne({ token: refreshToken });
+      if (!storedToken) {
+        return res.status(401).json({ error: "Invalid refresh token", code: "INVALID_REFRESH_TOKEN" });
+      }
+
+      if (storedToken.expiresAt < new Date()) {
+        await refreshTokenModel.deleteOne({ _id: storedToken._id });
+        return res.status(401).json({ error: "Refresh token expired", code: "REFRESH_TOKEN_EXPIRED" });
+      }
+
+      // Rotate Refresh Token (invalidate old)
+      await refreshTokenModel.deleteOne({ _id: storedToken._id });
+
+      const user = await userModel.findById(storedToken.userId);
+      if (!user || user.status === "blocked" || user.status === "inactive") {
+        return res.status(403).json({ error: "User account is disabled or blocked", code: "USER_DISABLED" });
+      }
+
+      const effectiveRole = user.role && user.role !== "customer"
+        ? user.role
+        : user.userRole === 1
+        ? "super_admin"
+        : "customer";
+
+      // Issue new Access Token (15 mins) and new Refresh Token (7 days)
+      const newAccessToken = jwt.sign(
+        { _id: user._id, role: user.userRole, rbacRole: effectiveRole },
+        JWT_SECRET,
+        { expiresIn: "15m" }
+      );
+
+      const newRefreshToken = crypto.randomBytes(40).toString("hex");
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+      await refreshTokenModel.create({
+        token: newRefreshToken,
+        userId: user._id,
+        expiresAt,
+      });
+
+      const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
+      const secureCookie = process.env.NODE_ENV === "production";
+
+      res.cookie("token", newAccessToken, {
+        httpOnly: true,
+        secure: secureCookie,
+        sameSite: "lax",
+        domain: cookieDomain,
+        maxAge: 15 * 60 * 1000,
+      });
+
+      res.cookie("refreshToken", newRefreshToken, {
+        httpOnly: true,
+        secure: secureCookie,
+        sameSite: "lax",
+        domain: cookieDomain,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
+      return res.json({
+        token: newAccessToken,
+        user: jwt.verify(newAccessToken, JWT_SECRET),
+      });
+    } catch (err) {
+      console.error("[AuthController] Refresh token rotation error:", err);
+      return res.status(500).json({ error: "Refresh token rotation failed" });
+    }
+  }
+
   async logout(req, res) {
-    res.clearCookie("token");
+    const { refreshToken } = req.cookies;
+    if (refreshToken) {
+      try {
+        await refreshTokenModel.deleteOne({ token: refreshToken });
+      } catch (err) {
+        console.error("[AuthController] Logout delete token error:", err);
+      }
+    }
+
+    const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
+    res.clearCookie("token", { domain: cookieDomain });
+    res.clearCookie("refreshToken", { domain: cookieDomain });
     return res.json({ message: "Logged out successfully" });
   }
 }

@@ -222,6 +222,8 @@ const productSchema = new mongoose.Schema(
 productSchema.index({ slug: 1 });
 productSchema.index({ sku: 1 });
 productSchema.index({ isDeleted: 1 });
+productSchema.index({ pCategory: 1 });
+productSchema.index({ pStatus: 1 });
 productSchema.index({ pName: "text", pDescription: "text", tags: "text" });
 
 const productModel = mongoose.model("products", productSchema);

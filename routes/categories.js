@@ -6,13 +6,17 @@ const { loginCheck } = require("../middleware/auth");
 const { cacheMiddleware, clearCache } = require("../middleware/cache");
 const { uploadMiddleware } = require("../config/cloudinary");
 
-// Categories: 1800s TTL (30 minutes)
-router.get("/all-category", cacheMiddleware("categories", 1800), categoryController.getAllCategory);
+// Categories: 900s TTL (15 minutes)
+const validate = require("../middleware/validate");
+const { createCategorySchema } = require("../validators/product.validator");
+
+router.get("/all-category", cacheMiddleware("categories", 900), categoryController.getAllCategory);
 
 router.post(
   "/add-category",
   loginCheck,
   uploadMiddleware.single("cImage"),
+  validate(createCategorySchema),
   (req, res, next) => {
     clearCache("categories");
     next();
@@ -20,7 +24,7 @@ router.post(
   categoryController.postAddCategory
 );
 
-router.post("/edit-category", loginCheck, (req, res, next) => {
+router.post("/edit-category", loginCheck, validate(createCategorySchema.partial()), (req, res, next) => {
   clearCache("categories");
   next();
 }, categoryController.postEditCategory);

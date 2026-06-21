@@ -45,7 +45,8 @@ class EmailService {
     }
   }
 
-  static async sendWelcomeEmail(toEmail, code) {
+  // ── Welcome Email ──
+  static async sendWelcomeEmailDirect(toEmail, code) {
     const html = `
       <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #E8D5BC; border-radius: 12px; background-color: #FAFAFA;">
         <h2 style="color: #6B3E26; text-align: center;">Welcome to Roshini's Home Products!</h2>
@@ -71,7 +72,20 @@ class EmailService {
     });
   }
 
-  static async sendOrderConfirmation(toEmail, orderId, amount) {
+  static async sendWelcomeEmail(toEmail, code) {
+    const { emailQueue, queueAvailable } = require("../config/queue");
+    if (queueAvailable && emailQueue) {
+      await emailQueue.add("sendEmail", {
+        type: "welcome",
+        data: { toEmail, nameOrCode: code }
+      });
+    } else {
+      await this.sendWelcomeEmailDirect(toEmail, code);
+    }
+  }
+
+  // ── Order Confirmation ──
+  static async sendOrderConfirmationDirect(toEmail, orderId, amount) {
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: auto;">
         <h2>Order Confirmation</h2>
@@ -89,7 +103,20 @@ class EmailService {
     });
   }
 
-  static async sendPaymentSuccess(toEmail, transactionId, amount) {
+  static async sendOrderConfirmation(toEmail, orderId, amount) {
+    const { emailQueue, queueAvailable } = require("../config/queue");
+    if (queueAvailable && emailQueue) {
+      await emailQueue.add("sendEmail", {
+        type: "orderConfirmation",
+        data: { toEmail, orderId, amount }
+      });
+    } else {
+      await this.sendOrderConfirmationDirect(toEmail, orderId, amount);
+    }
+  }
+
+  // ── Payment Success ──
+  static async sendPaymentSuccessDirect(toEmail, transactionId, amount) {
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: auto;">
         <h2>Payment Successful</h2>
@@ -105,7 +132,20 @@ class EmailService {
     });
   }
 
-  static async sendPaymentFailed(toEmail, transactionId) {
+  static async sendPaymentSuccess(toEmail, transactionId, amount) {
+    const { emailQueue, queueAvailable } = require("../config/queue");
+    if (queueAvailable && emailQueue) {
+      await emailQueue.add("sendEmail", {
+        type: "paymentSuccess",
+        data: { toEmail, transactionId, amount }
+      });
+    } else {
+      await this.sendPaymentSuccessDirect(toEmail, transactionId, amount);
+    }
+  }
+
+  // ── Payment Failed ──
+  static async sendPaymentFailedDirect(toEmail, transactionId) {
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: auto;">
         <h2>Payment Failed</h2>
@@ -121,7 +161,20 @@ class EmailService {
     });
   }
 
-  static async sendOrderShipped(toEmail, orderId) {
+  static async sendPaymentFailed(toEmail, transactionId) {
+    const { emailQueue, queueAvailable } = require("../config/queue");
+    if (queueAvailable && emailQueue) {
+      await emailQueue.add("sendEmail", {
+        type: "paymentFailed",
+        data: { toEmail, transactionId }
+      });
+    } else {
+      await this.sendPaymentFailedDirect(toEmail, transactionId);
+    }
+  }
+
+  // ── Order Shipped ──
+  static async sendOrderShippedDirect(toEmail, orderId) {
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: auto;">
         <h2>Your Order Has Shipped!</h2>
@@ -137,7 +190,20 @@ class EmailService {
     });
   }
 
-  static async sendPasswordReset(toEmail, resetLink) {
+  static async sendOrderShipped(toEmail, orderId) {
+    const { emailQueue, queueAvailable } = require("../config/queue");
+    if (queueAvailable && emailQueue) {
+      await emailQueue.add("sendEmail", {
+        type: "orderShipped",
+        data: { toEmail, orderId }
+      });
+    } else {
+      await this.sendOrderShippedDirect(toEmail, orderId);
+    }
+  }
+
+  // ── Password Reset ──
+  static async sendPasswordResetDirect(toEmail, resetLink) {
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: auto;">
         <h2>Password Reset Request</h2>
@@ -153,7 +219,20 @@ class EmailService {
     });
   }
 
-  static async sendAdminNewOrderAlert(adminEmail, orderId, amount) {
+  static async sendPasswordReset(toEmail, resetLink) {
+    const { emailQueue, queueAvailable } = require("../config/queue");
+    if (queueAvailable && emailQueue) {
+      await emailQueue.add("sendEmail", {
+        type: "passwordReset",
+        data: { toEmail, resetLink }
+      });
+    } else {
+      await this.sendPasswordResetDirect(toEmail, resetLink);
+    }
+  }
+
+  // ── Admin Alerts ──
+  static async sendAdminNewOrderAlertDirect(adminEmail, orderId, amount) {
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: auto;">
         <h2>New Order Received</h2>
@@ -166,6 +245,18 @@ class EmailService {
       subject: `New Order Alert - ${orderId}`,
       html,
     });
+  }
+
+  static async sendAdminNewOrderAlert(adminEmail, orderId, amount) {
+    const { emailQueue, queueAvailable } = require("../config/queue");
+    if (queueAvailable && emailQueue) {
+      await emailQueue.add("sendEmail", {
+        type: "adminNewOrder",
+        data: { toEmail: adminEmail, orderId, amount }
+      });
+    } else {
+      await this.sendAdminNewOrderAlertDirect(adminEmail, orderId, amount);
+    }
   }
 }
 

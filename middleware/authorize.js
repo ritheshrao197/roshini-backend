@@ -19,7 +19,7 @@ const authorize = (allowedRoles = []) => {
       // 1. Extract and verify JWT (reuses same logic as loginCheck)
       let token = req.cookies.token || req.headers.token;
       if (!token) {
-        return res.status(401).json({ error: "Authentication required. Please log in." });
+        return res.status(401).json({ error: "Authentication required. Please log in.", code: "UNAUTHORIZED" });
       }
       token = token.replace("Bearer ", "");
 
@@ -27,7 +27,16 @@ const authorize = (allowedRoles = []) => {
       try {
         decoded = jwt.verify(token, JWT_SECRET);
       } catch (err) {
-        return res.status(401).json({ error: "Invalid or expired session. Please log in again." });
+        if (err.name === "TokenExpiredError") {
+          return res.status(401).json({
+            error: "Access token has expired",
+            code: "TOKEN_EXPIRED",
+          });
+        }
+        return res.status(401).json({
+          error: "Invalid or expired session. Please log in again.",
+          code: "UNAUTHORIZED",
+        });
       }
 
       // 2. Fetch fresh user from DB (ensures we get current role/status — not stale JWT data)

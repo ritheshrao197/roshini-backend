@@ -4,11 +4,13 @@ const adminController = require("../controller/admin");
 const { loginCheck, isAdmin } = require("../middleware/auth");
 
 const { couponLimiter } = require("../middleware/rateLimiter");
+const validate = require("../middleware/validate");
+const { createCouponSchema, applyCouponSchema } = require("../validators/coupon.validator");
 
 router.get("/admin/analytics", loginCheck, isAdmin, adminController.getDashboardAnalytics);
-router.post("/admin/coupon", loginCheck, isAdmin, adminController.createCoupon);
+router.post("/admin/coupon", loginCheck, isAdmin, validate(createCouponSchema), adminController.createCoupon);
 router.get("/admin/orders/export", loginCheck, isAdmin, adminController.exportOrdersCSV);
-router.post("/coupon/apply", loginCheck, couponLimiter, adminController.applyCoupon);
+router.post("/coupon/apply", loginCheck, couponLimiter, validate(applyCouponSchema), adminController.applyCoupon);
 
 // Media & Logs (Admin only)
 router.get("/admin/email-logs", loginCheck, isAdmin, adminController.getEmailLogs);

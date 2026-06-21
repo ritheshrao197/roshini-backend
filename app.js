@@ -5,13 +5,31 @@
 
 const express = require("express");
 const app = express();
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
+
+// ── Startup Environment Check ──
+require("./config/env.validator");
+
+const Sentry = require("@sentry/node");
+if (process.env.SENTRY_DSN) {
+  Sentry.init({ dsn: process.env.SENTRY_DSN });
+}
+
+// Start background queue workers
+require("./services/worker");
+
 const mongoose = require("mongoose");
-const morgan = require("morgan");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
+const timeout = require("connect-timeout");
+const compression = require("compression");
+const hpp = require("hpp");
+const pinoHttp = require("pino-http");
+const crypto = require("crypto");
+const logger = require("./config/logger");
 
 // Import Router
 const authRouter = require("./routes/auth");
@@ -56,36 +74,70 @@ mongoose
   )
   .catch((err) => console.log("Database Not Connected !!!"));
 
-// Security Middlewares
-app.use(helmet({ crossOriginResourcePolicy: false }));
-app.use(mongoSanitize());
+// ── Performance & Timeout Middlewares ──
+app.use(timeout("15s"));
+app.use(compression());
 
-// Middleware
-app.use(morgan("dev"));
+// ── Request ID Tracing ──
+app.use((req, res, next) => {
+  const requestId = req.headers["x-request-id"] || (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15));
+  req.id = requestId;
+  res.setHeader("x-request-id", requestId);
+  next();
+});
+
+// ── Structured Request Logging ──
+app.use(pinoHttp({ logger }));
+
+// ── Security Middlewares ──
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://www.google-analytics.com", "https://*.clarity.ms"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https://res.cloudinary.com", "https://*.clarity.ms"],
+      connectSrc: ["'self'", "https://www.google-analytics.com", "https://*.clarity.ms", "https://*.sentry.io"],
+    },
+  },
+  xssFilter: true,
+  frameguard: { action: "deny" }
+}));
+app.use(mongoSanitize());
+app.use(hpp());
+
 app.use(cookieParser());
 
 const clientUrl = process.env.CLIENT_URL ? process.env.CLIENT_URL.replace(/\/$/, "") : "";
 
-const allowedOrigins = [
-  clientUrl,
-  "http://localhost:3000",
-  "http://localhost:3001",
-  "http://localhost:3002",
-  "http://127.0.0.1:3000",
-  "http://127.0.0.1:3001",
-  "http://127.0.0.1:3002",
-].filter(Boolean);
+const allowedOrigins = process.env.NODE_ENV === "production"
+  ? [
+      "https://roshinishomeproducts.com",
+      "https://admin.roshinishomeproducts.com"
+    ]
+  : [
+      clientUrl,
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://localhost:3002",
+      "http://127.0.0.1:3000",
+      "http://127.0.0.1:3001",
+      "http://127.0.0.1:3002",
+    ].filter(Boolean);
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
     
     const isAllowed = allowedOrigins.indexOf(origin) !== -1 || 
-                      origin.startsWith("http://localhost:") || 
-                      origin.startsWith("http://127.0.0.1:") ||
-                      origin.startsWith("http://192.168.") ||
-                      origin.endsWith(".vercel.app");
+                      (process.env.NODE_ENV !== "production" && (
+                        origin.startsWith("http://localhost:") || 
+                        origin.startsWith("http://127.0.0.1:") ||
+                        origin.startsWith("http://192.168.") ||
+                        origin.endsWith(".vercel.app")
+                      ));
                       
     if (isAllowed) {
       callback(null, true);
@@ -126,17 +178,72 @@ app.use("/api", adminSliderRouter);
 app.use("/api", websiteSectionsRouter);
 app.use("/api", userManagementRouter); // RBAC & User Management
 app.use("/api/newsletter", newsletterRouter);
-// Global Error Handler
-app.use((err, req, res, next) => {
-  console.error("Global Error Caught:", err);
-  res.status(err.status || 500).json({
-    error: err.message || "Internal Server Error",
-    status: err.status || 500,
+// Health Check Endpoints
+app.get("/health", (req, res) => {
+  res.json({ status: "healthy" });
+});
+
+app.get("/health/details", (req, res) => {
+  const dbStatus = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
+  let redisStatus = "disconnected";
+  try {
+    const redisClient = require("./config/redis");
+    if (redisClient) {
+      redisStatus = "connected";
+    }
+  } catch (e) {}
+
+  res.json({
+    status: "healthy",
+    mongodb: dbStatus,
+    redis: redisStatus,
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
   });
 });
 
+// Global Rate Limiter for all API routes
+const rateLimit = require("express-rate-limit");
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: "Too many requests. Please wait 15 minutes before trying again.", limit: 100 },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use("/api", globalLimiter);
+
+// Global Error Handler
+const errorHandler = require("./middleware/errorHandler");
+app.use(errorHandler);
+
 // Run Server
 const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => {
-  console.log("Server is running on ", PORT);
+const server = app.listen(PORT, () => {
+  logger.info(`Server is running on port ${PORT}`);
 });
+
+// Graceful Shutdown
+const gracefulShutdown = async (signal) => {
+  logger.info(`[Shutdown] Received ${signal}. Starting graceful shutdown...`);
+  server.close(async () => {
+    logger.info("[Shutdown] HTTP server closed.");
+    try {
+      await mongoose.disconnect();
+      logger.info("[Shutdown] MongoDB connection closed.");
+      process.exit(0);
+    } catch (err) {
+      logger.error({ err }, "[Shutdown] Error during MongoDB disconnect.");
+      process.exit(1);
+    }
+  });
+  
+  // Force exit after 10 seconds if graceful close fails
+  setTimeout(() => {
+    logger.error("[Shutdown] Force exit. Timeout reached.");
+    process.exit(1);
+  }, 10000);
+};
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
