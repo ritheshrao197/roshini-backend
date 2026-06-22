@@ -1,9 +1,9 @@
 const cloudinary = require("cloudinary").v2;
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const multer = require("multer");
+const fs = require("fs");
+const path = require("path");
 
-let uploadMiddleware = null;
-
+// Configure Cloudinary SDK configuration
 if (
   process.env.CLOUDINARY_CLOUD_NAME &&
   process.env.CLOUDINARY_API_KEY &&
@@ -14,33 +14,28 @@ if (
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
   });
-
-  const storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-      folder: "roshinis_ecommerce",
-      allowed_formats: ["jpg", "png", "webp", "jpeg"],
-      transformation: [{ width: 800, height: 800, crop: "limit", fetch_format: "webp" }],
-    },
-  });
-
-  uploadMiddleware = multer({ storage: storage });
-  console.log("==============Cloudinary CDN Storage Initialized==============");
-} else {
-  // If no credentials, configure a dummy middleware that errors out clearly
-  uploadMiddleware = (req, res, next) => {
-    return res.status(500).json({
-      error: "Cloudinary credentials missing. File uploads are disabled.",
-    });
-  };
-  uploadMiddleware.any = () => uploadMiddleware;
-  uploadMiddleware.single = () => uploadMiddleware;
-  uploadMiddleware.array = () => uploadMiddleware;
-  
-  console.error(
-    "[FATAL] Cloudinary keys missing in .env. Image uploads will fail."
-  );
 }
+
+// Local temporary storage for file uploads
+const tempStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const dir = path.join(__dirname, "../public/uploads/temp");
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + "_" + file.originalname);
+  },
+});
+
+const uploadMiddleware = multer({
+  storage: tempStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB limit
+});
+
+console.log("==============Local Temp Storage Upload Middleware Initialized==============");
 
 module.exports = {
   uploadMiddleware,

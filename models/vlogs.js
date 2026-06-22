@@ -20,8 +20,10 @@ const vlogSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    thumbnail: {
-      type: String, // URL or file path
+    image: {
+      publicId: { type: String, default: null },
+      secureUrl: { type: String, default: null },
+      alt: { type: String, default: "" }
     },
     vCategory: {
       type: ObjectId,
@@ -70,6 +72,13 @@ const vlogSchema = new mongoose.Schema(
 vlogSchema.index({ slug: 1 });
 vlogSchema.index({ isPublished: 1, isDeleted: 1 });
 vlogSchema.index({ title: "text", content: "text" });
+
+vlogSchema.set("toJSON", { virtuals: true });
+vlogSchema.set("toObject", { virtuals: true });
+
+vlogSchema.virtual("thumbnail").get(function () {
+  return this.image ? this.image.secureUrl : "";
+});
 
 const vlogModel = mongoose.model("vlogs", vlogSchema);
 module.exports = vlogModel;

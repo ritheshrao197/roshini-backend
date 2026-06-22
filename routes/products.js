@@ -15,12 +15,14 @@ router.post("/product-by-price", productController.getProductByPrice);
 router.post("/wish-product", productController.getWishProduct);
 router.post("/cart-product", productController.getCartProduct);
 
-router.post("/add-product", uploadMiddleware.any(), (req, res, next) => {
+const imageValidator = require("../middleware/imageValidator");
+
+router.post("/add-product", uploadMiddleware.any(), imageValidator, (req, res, next) => {
   clearCache("products");
   next();
 }, productController.postAddProduct);
 
-router.post("/edit-product", uploadMiddleware.any(), (req, res, next) => {
+router.post("/edit-product", uploadMiddleware.any(), imageValidator, (req, res, next) => {
   clearCache("products");
   next();
 }, productController.postEditProduct);

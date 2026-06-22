@@ -18,10 +18,12 @@ const upload = multer({ storage: storage });
 // All routes are protected
 router.use(loginCheck, isAuth);
 
+const imageValidator = require("../middleware/imageValidator");
+
 // Profile
 router.get("/profile", accountController.getProfile);
 router.put("/profile", accountController.updateProfile);
-router.post("/profile-image", upload.single("profileImage"), accountController.uploadProfileImage);
+router.post("/profile-image", upload.single("profileImage"), imageValidator, accountController.uploadProfileImage);
 
 // Addresses
 router.get("/addresses", accountController.getAddresses);

@@ -1,22 +1,32 @@
 const productModel = require("../models/products");
 const fs = require("fs");
 const path = require("path");
+const { uploadImage, deleteImage } = require("../services/cloudinaryUpload");
+
+const safeUnlink = (filePath) => {
+  if (filePath && fs.existsSync(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch (e) {
+      console.error("[ProductController] Failed to delete local temp file:", e);
+    }
+  }
+};
 
 class Product {
-  // Delete Image from uploads -> products folder
-  static deleteImages(publicIds) {
+  // Delete Image from Cloudinary
+  static async deleteImages(publicIds) {
     if (!publicIds || !Array.isArray(publicIds) || publicIds.length === 0) {
       return;
     }
-    const { cloudinary } = require("../config/cloudinary");
     for (let i = 0; i < publicIds.length; i++) {
       let publicId = publicIds[i];
       if (!publicId) continue;
-      cloudinary.uploader.destroy(publicId, (error, result) => {
-        if (error) {
-          console.error("[ProductController] Cloudinary delete error:", error);
-        }
-      });
+      try {
+        await deleteImage(publicId);
+      } catch (err) {
+        console.error("[ProductController] Cloudinary delete error:", err);
+      }
     }
   }
 
@@ -88,7 +98,6 @@ class Product {
 
     // Check if images exists and has at least 1 file
     if (!images || !Array.isArray(images) || images.length === 0) {
-      if (images) Product.deleteImages(images.map((img) => img.filename));
       return res.json({ error: "Must need to provide at least 1 product image" });
     }
 
@@ -101,22 +110,38 @@ class Product {
       !pCategory ||
       !pStatus
     ) {
-      Product.deleteImages(images.map((img) => img.filename));
+      if (images) images.forEach((img) => safeUnlink(img.path));
       return res.json({ error: "All required basic fields must be provided" });
     }
     // Validate Name and description
     else if (pName.length > 255 || pDescription.length > 3000) {
-      Product.deleteImages(images.map((img) => img.filename));
+      if (images) images.forEach((img) => safeUnlink(img.path));
       return res.json({
         error: "Name 255 & Description must not be 3000 characters long",
       });
     } else {
+      let uploadedImages = [];
       try {
-        let allImages = [];
-        let allPublicIds = [];
-        for (const img of images) {
-          allImages.push(img.path);
-          allPublicIds.push(img.filename);
+        // Enforce gallery limit (max 10 images)
+        if (images.length > 10) {
+          images.forEach((img) => safeUnlink(img.path));
+          return res.status(400).json({ error: "Maximum 10 images allowed per product" });
+        }
+
+        let imagesMetadata = safeJsonParse(req.body.imagesMetadata, []);
+
+        // Upload all images to Cloudinary
+        for (let i = 0; i < images.length; i++) {
+          const img = images[i];
+          const uploaded = await uploadImage(img, "products");
+          const meta = imagesMetadata.find(m => m.fileIndex === i) || {};
+          uploadedImages.push({
+            publicId: uploaded.publicId,
+            secureUrl: uploaded.secureUrl,
+            alt: meta.alt || pName,
+            isPrimary: meta.isPrimary || (uploadedImages.length === 0),
+          });
+          safeUnlink(img.path);
         }
 
         // Auto-generate slug if not provided
@@ -130,14 +155,26 @@ class Product {
         if (sku) {
           let skuExist = await productModel.findOne({ sku });
           if (skuExist) {
-            Product.deleteImages(images.map((img) => img.filename));
+            if (uploadedImages.length > 0) {
+              await Product.deleteImages(uploadedImages.map(img => img.publicId));
+            }
             return res.json({ error: "SKU already exists" });
           }
         }
 
+        let primaryImg = uploadedImages.find(img => img.isPrimary);
+        if (!primaryImg && uploadedImages.length > 0) {
+          uploadedImages[0].isPrimary = true;
+          primaryImg = uploadedImages[0];
+        }
+
         let newProduct = new productModel({
-          pImages: allImages,
-          pImagePublicIds: allPublicIds,
+          image: primaryImg ? {
+            publicId: primaryImg.publicId,
+            secureUrl: primaryImg.secureUrl,
+            alt: primaryImg.alt
+          } : null,
+          images: uploadedImages,
           pName,
           pDescription,
           pPrice: Number(pPrice),
@@ -190,8 +227,15 @@ class Product {
         }
       } catch (err) {
         console.error("[ProductController] postAddProduct error:", err);
-        if (images) Product.deleteImages(images.map((img) => img.filename));
-        return res.json({ error: "Error occurred while saving product" });
+        // Clean up any successfully uploaded Cloudinary files on error
+        if (uploadedImages.length > 0) {
+          await Product.deleteImages(uploadedImages.map(img => img.publicId));
+        }
+        // Clean up local temp files that haven't been deleted
+        if (images) {
+          images.forEach((img) => safeUnlink(img.path));
+        }
+        return res.json({ error: "Error occurred while saving product: " + err.message });
       }
     }
   }
@@ -340,17 +384,134 @@ class Product {
         featured: featured === "true" || featured === true,
       };
 
-      if (editImages && editImages.length > 0) {
-        let allEditImages = [];
-        let allEditPublicIds = [];
-        for (const img of editImages) {
-          allEditImages.push(img.path);
-          allEditPublicIds.push(img.filename);
+      let imagesMetadata = safeJsonParse(req.body.imagesMetadata, null);
+
+      if (imagesMetadata !== null) {
+        // Enforce gallery limit (max 10 images)
+        if (imagesMetadata.length > 10) {
+          if (editImages) editImages.forEach((img) => safeUnlink(img.path));
+          return res.status(400).json({ error: "Maximum 10 images allowed per product" });
         }
-        editData.pImages = allEditImages;
-        editData.pImagePublicIds = allEditPublicIds;
-        if (existingProduct.pImagePublicIds && existingProduct.pImagePublicIds.length > 0) {
-          Product.deleteImages(existingProduct.pImagePublicIds);
+
+        let uploadedImages = [];
+        try {
+          if (editImages && editImages.length > 0) {
+            for (const img of editImages) {
+              const uploaded = await uploadImage(img, "products");
+              uploadedImages.push({
+                publicId: uploaded.publicId,
+                secureUrl: uploaded.secureUrl,
+              });
+              safeUnlink(img.path);
+            }
+          }
+        } catch (uploadErr) {
+          console.error("[ProductController] Error uploading edit images:", uploadErr);
+          if (uploadedImages.length > 0) {
+            await Product.deleteImages(uploadedImages.map(img => img.publicId));
+          }
+          if (editImages) {
+            editImages.forEach((img) => safeUnlink(img.path));
+          }
+          return res.status(500).json({ error: "Failed to upload product images: " + uploadErr.message });
+        }
+
+        // Reconstruct the new images array
+        let finalImages = [];
+        for (const meta of imagesMetadata) {
+          if (meta.publicId) {
+            // Existing image. Make sure it belonged to the product
+            const existing = existingProduct.images.find(img => img.publicId === meta.publicId);
+            if (existing) {
+              finalImages.push({
+                publicId: existing.publicId,
+                secureUrl: existing.secureUrl,
+                alt: meta.alt !== undefined ? meta.alt : existing.alt,
+                isPrimary: !!meta.isPrimary,
+              });
+            }
+          } else if (meta.fileIndex !== undefined && uploadedImages[meta.fileIndex]) {
+            // Newly uploaded image
+            const uploaded = uploadedImages[meta.fileIndex];
+            finalImages.push({
+              publicId: uploaded.publicId,
+              secureUrl: uploaded.secureUrl,
+              alt: meta.alt || pName || existingProduct.pName,
+              isPrimary: !!meta.isPrimary,
+            });
+          }
+        }
+
+        // Determine which old images were deleted to clean up Cloudinary
+        const newPublicIds = new Set(finalImages.map(img => img.publicId));
+        const deletedPublicIds = [];
+        if (existingProduct.images) {
+          for (const img of existingProduct.images) {
+            if (img.publicId && !newPublicIds.has(img.publicId)) {
+              deletedPublicIds.push(img.publicId);
+            }
+          }
+        }
+
+        if (deletedPublicIds.length > 0) {
+          await Product.deleteImages(deletedPublicIds);
+        }
+
+        // Set primary image
+        let primaryImg = finalImages.find(img => img.isPrimary);
+        if (!primaryImg && finalImages.length > 0) {
+          finalImages[0].isPrimary = true;
+          primaryImg = finalImages[0];
+        }
+
+        editData.images = finalImages;
+        editData.image = primaryImg ? {
+          publicId: primaryImg.publicId,
+          secureUrl: primaryImg.secureUrl,
+          alt: primaryImg.alt
+        } : null;
+      } else if (editImages && editImages.length > 0) {
+        // Fallback for older API clients that don't pass imagesMetadata
+        if (editImages.length > 10) {
+          editImages.forEach((img) => safeUnlink(img.path));
+          return res.status(400).json({ error: "Maximum 10 images allowed per product" });
+        }
+
+        let uploadedImages = [];
+        try {
+          for (const img of editImages) {
+            const uploaded = await uploadImage(img, "products");
+            uploadedImages.push({
+              publicId: uploaded.publicId,
+              secureUrl: uploaded.secureUrl,
+              alt: pName || existingProduct.pName,
+              isPrimary: uploadedImages.length === 0,
+            });
+            safeUnlink(img.path);
+          }
+          editData.image = uploadedImages.length > 0 ? {
+            publicId: uploadedImages[0].publicId,
+            secureUrl: uploadedImages[0].secureUrl,
+            alt: pName || existingProduct.pName
+          } : null;
+          editData.images = uploadedImages;
+
+          // Delete old images from Cloudinary to prevent orphans
+          if (existingProduct.images && existingProduct.images.length > 0) {
+            const oldIds = existingProduct.images.map(img => img.publicId).filter(Boolean);
+            if (oldIds.length > 0) {
+              await Product.deleteImages(oldIds);
+            }
+          }
+        } catch (uploadErr) {
+          console.error("[ProductController] Error uploading edit images:", uploadErr);
+          if (uploadedImages.length > 0) {
+            await Product.deleteImages(uploadedImages.map(img => img.publicId));
+          }
+          if (editImages) {
+            editImages.forEach((img) => safeUnlink(img.path));
+          }
+          return res.status(500).json({ error: "Failed to upload product images: " + uploadErr.message });
         }
       }
 
@@ -373,6 +534,9 @@ class Product {
       return res.json({ error: "Product not found during update" });
     } catch (err) {
       console.error("[ProductController] postEditProduct error:", err);
+      if (editImages) {
+        editImages.forEach((img) => safeUnlink(img.path));
+      }
       return res.json({ error: "Error updating product details: " + err.message });
     }
   }

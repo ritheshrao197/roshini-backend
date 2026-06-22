@@ -3,6 +3,18 @@ const sliderAnalyticsModel = require("../models/sliderAnalytics");
 const productModel = require("../models/products");
 const achievementModel = require("../models/achievements");
 const mongoose = require("mongoose");
+const { uploadImage, deleteImage, replaceImage } = require("../services/cloudinaryUpload");
+const fs = require("fs");
+
+const safeUnlink = (filePath) => {
+  if (filePath && fs.existsSync(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch (e) {
+      console.error("[SliderController] Failed to delete local temp file:", e);
+    }
+  }
+};
 
 class SliderController {
   // --- PUBLIC ENDPOINTS ---
@@ -172,29 +184,56 @@ class SliderController {
   async postAddSlider(req, res) {
     let data = { ...req.body };
     
-    if (req.files) {
-      if (req.files.desktopImage && req.files.desktopImage[0]) {
-        data.desktopImage = req.files.desktopImage[0].filename;
-      }
-      if (req.files.mobileImage && req.files.mobileImage[0]) {
-        data.mobileImage = req.files.mobileImage[0].filename;
-      }
-    }
+    let uploadedDesktop = null;
+    let uploadedMobile = null;
 
     if (data.showOverlayStats === "true") data.showOverlayStats = true;
     if (data.showOverlayStats === "false") data.showOverlayStats = false;
-    
-    if (!data.title && !data.desktopImage && data.type !== 'product' && data.type !== 'achievement') {
-      return res.status(400).json({ error: "Title or Image is required for image slides" });
-    }
 
     try {
+      if (req.files) {
+        if (req.files.desktopImage && req.files.desktopImage[0]) {
+          uploadedDesktop = await uploadImage(req.files.desktopImage[0], "banners");
+          data.desktopImage = {
+            publicId: uploadedDesktop.publicId,
+            secureUrl: uploadedDesktop.secureUrl,
+            alt: data.title || "Desktop Hero Banner"
+          };
+          safeUnlink(req.files.desktopImage[0].path);
+        }
+        if (req.files.mobileImage && req.files.mobileImage[0]) {
+          uploadedMobile = await uploadImage(req.files.mobileImage[0], "banners");
+          data.mobileImage = {
+            publicId: uploadedMobile.publicId,
+            secureUrl: uploadedMobile.secureUrl,
+            alt: data.title || "Mobile Hero Banner"
+          };
+          safeUnlink(req.files.mobileImage[0].path);
+        }
+      }
+
+      if (!data.title && !data.desktopImage && data.type !== 'product' && data.type !== 'achievement') {
+        return res.status(400).json({ error: "Title or Image is required for image slides" });
+      }
+
       let newSlider = new heroSliderModel(data);
       let save = await newSlider.save();
       return res.json({ success: "Slider created successfully", slider: save });
     } catch (err) {
       console.log("postAddSlider error:", err);
-      return res.status(500).json({ error: "Internal server error" });
+      // Clean up Cloudinary uploads on failure
+      if (uploadedDesktop) {
+        try { await deleteImage(uploadedDesktop.publicId); } catch(e) {}
+      }
+      if (uploadedMobile) {
+        try { await deleteImage(uploadedMobile.publicId); } catch(e) {}
+      }
+      // Clean up local temp files
+      if (req.files) {
+        if (req.files.desktopImage && req.files.desktopImage[0]) safeUnlink(req.files.desktopImage[0].path);
+        if (req.files.mobileImage && req.files.mobileImage[0]) safeUnlink(req.files.mobileImage[0].path);
+      }
+      return res.status(500).json({ error: "Internal server error: " + err.message });
     }
   }
 
@@ -202,19 +241,45 @@ class SliderController {
     let { id } = req.params;
     let data = { ...req.body };
 
-    if (req.files) {
-      if (req.files.desktopImage && req.files.desktopImage[0]) {
-        data.desktopImage = req.files.desktopImage[0].filename;
-      }
-      if (req.files.mobileImage && req.files.mobileImage[0]) {
-        data.mobileImage = req.files.mobileImage[0].filename;
-      }
-    }
-
     if (data.showOverlayStats === "true") data.showOverlayStats = true;
     if (data.showOverlayStats === "false") data.showOverlayStats = false;
 
+    let uploadedDesktop = null;
+    let uploadedMobile = null;
+
     try {
+      const existingSlider = await heroSliderModel.findById(id);
+      if (!existingSlider) {
+        if (req.files) {
+          if (req.files.desktopImage && req.files.desktopImage[0]) safeUnlink(req.files.desktopImage[0].path);
+          if (req.files.mobileImage && req.files.mobileImage[0]) safeUnlink(req.files.mobileImage[0].path);
+        }
+        return res.status(404).json({ error: "Slider not found" });
+      }
+
+      if (req.files) {
+        if (req.files.desktopImage && req.files.desktopImage[0]) {
+          const oldPublicId = existingSlider.desktopImage ? existingSlider.desktopImage.publicId : null;
+          uploadedDesktop = await replaceImage(oldPublicId, req.files.desktopImage[0], "banners");
+          data.desktopImage = {
+            publicId: uploadedDesktop.publicId,
+            secureUrl: uploadedDesktop.secureUrl,
+            alt: data.title || existingSlider.title || "Desktop Hero Banner"
+          };
+          safeUnlink(req.files.desktopImage[0].path);
+        }
+        if (req.files.mobileImage && req.files.mobileImage[0]) {
+          const oldPublicId = existingSlider.mobileImage ? existingSlider.mobileImage.publicId : null;
+          uploadedMobile = await replaceImage(oldPublicId, req.files.mobileImage[0], "banners");
+          data.mobileImage = {
+            publicId: uploadedMobile.publicId,
+            secureUrl: uploadedMobile.secureUrl,
+            alt: data.title || existingSlider.title || "Mobile Hero Banner"
+          };
+          safeUnlink(req.files.mobileImage[0].path);
+        }
+      }
+
       let updated = await heroSliderModel.findByIdAndUpdate(id, data, { new: true });
       if (updated) {
         return res.json({ success: "Slider updated successfully", slider: updated });
@@ -222,7 +287,17 @@ class SliderController {
       return res.status(404).json({ error: "Slider not found" });
     } catch (err) {
       console.log("putUpdateSlider error:", err);
-      return res.status(500).json({ error: "Internal server error" });
+      if (uploadedDesktop) {
+        try { await deleteImage(uploadedDesktop.publicId); } catch(e) {}
+      }
+      if (uploadedMobile) {
+        try { await deleteImage(uploadedMobile.publicId); } catch(e) {}
+      }
+      if (req.files) {
+        if (req.files.desktopImage && req.files.desktopImage[0]) safeUnlink(req.files.desktopImage[0].path);
+        if (req.files.mobileImage && req.files.mobileImage[0]) safeUnlink(req.files.mobileImage[0].path);
+      }
+      return res.status(500).json({ error: "Internal server error: " + err.message });
     }
   }
 
@@ -231,6 +306,14 @@ class SliderController {
     try {
       let deleted = await heroSliderModel.findByIdAndDelete(id);
       if (deleted) {
+        // Clean up images from Cloudinary
+        if (deleted.desktopImage && deleted.desktopImage.publicId) {
+          try { await deleteImage(deleted.desktopImage.publicId); } catch(e) {}
+        }
+        if (deleted.mobileImage && deleted.mobileImage.publicId) {
+          try { await deleteImage(deleted.mobileImage.publicId); } catch(e) {}
+        }
+
         // Also clean up analytics
         await sliderAnalyticsModel.deleteMany({ sliderId: id });
         return res.json({ success: "Slider deleted successfully" });

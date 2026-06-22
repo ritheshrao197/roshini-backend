@@ -1,6 +1,17 @@
 const userModel = require("../models/users");
 const bcrypt = require("bcryptjs");
-const cloudinary = require("cloudinary").v2;
+const { uploadImage, deleteImage, replaceImage } = require("../services/cloudinaryUpload");
+const fs = require("fs");
+
+const safeUnlink = (filePath) => {
+  if (filePath && fs.existsSync(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch (e) {
+      console.error("[AccountController] Failed to delete local temp file:", e);
+    }
+  }
+};
 
 class AccountController {
   
@@ -44,40 +55,36 @@ class AccountController {
       if (!req.file) return res.status(400).json({ error: "No image uploaded" });
 
       const user = await userModel.findById(req.userDetails._id);
-      if (!user) return res.status(404).json({ error: "User not found" });
-
-      // Configure Cloudinary if keys exist
-      if (process.env.CLOUDINARY_API_KEY) {
-        cloudinary.config({
-          cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-          api_key: process.env.CLOUDINARY_API_KEY,
-          api_secret: process.env.CLOUDINARY_API_SECRET,
-        });
-
-        // Delete old image from cloudinary if exists
-        if (user.profileImagePublicId) {
-          try {
-            await cloudinary.uploader.destroy(user.profileImagePublicId);
-          } catch (err) {
-            console.log("Failed to delete old image from cloudinary", err);
-          }
-        }
-
-        const result = await cloudinary.uploader.upload(req.file.path, {
-          folder: "roshinis/profiles",
-        });
-
-        user.profileImageUrl = result.secure_url;
-        user.profileImagePublicId = result.public_id;
-      } else {
-        // Fallback to local upload
-        user.profileImageUrl = `/uploads/profiles/${req.file.filename}`;
+      if (!user) {
+        safeUnlink(req.file.path);
+        return res.status(404).json({ error: "User not found" });
       }
 
-      await user.save();
-      return res.json({ success: "Profile image updated", profileImageUrl: user.profileImageUrl });
+      let uploaded = null;
+      try {
+        const oldPublicId = user.userImage ? user.userImage.publicId : null;
+        uploaded = await replaceImage(oldPublicId, req.file, "users");
+        safeUnlink(req.file.path);
+        
+        user.userImage = {
+          publicId: uploaded.publicId,
+          secureUrl: uploaded.secureUrl,
+          alt: `${user.name} Profile Image`
+        };
+        await user.save();
+
+        return res.json({ success: "Profile image updated", profileImageUrl: user.profileImageUrl });
+      } catch (uploadErr) {
+        console.error("[AccountController] Upload error:", uploadErr);
+        if (uploaded) {
+          try { await deleteImage(uploaded.publicId); } catch(e) {}
+        }
+        safeUnlink(req.file.path);
+        return res.status(500).json({ error: "Failed to upload image: " + uploadErr.message });
+      }
     } catch (err) {
-      console.log(err);
+      console.error(err);
+      if (req.file) safeUnlink(req.file.path);
       return res.status(500).json({ error: "Internal server error" });
     }
   }

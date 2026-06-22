@@ -7,8 +7,16 @@ const heroSliderSchema = new mongoose.Schema(
     subtitle: { type: String },
     description: { type: String },
     
-    desktopImage: { type: String },
-    mobileImage: { type: String },
+    desktopImage: {
+      publicId: { type: String, default: null },
+      secureUrl: { type: String, default: null },
+      alt: { type: String, default: "" }
+    },
+    mobileImage: {
+      publicId: { type: String, default: null },
+      secureUrl: { type: String, default: null },
+      alt: { type: String, default: "" }
+    },
     
     primaryButtonText: { type: String },
     primaryButtonLink: { type: String },
@@ -48,6 +56,9 @@ const heroSliderSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+heroSliderSchema.set("toJSON", { virtuals: true });
+heroSliderSchema.set("toObject", { virtuals: true });
 
 const heroSliderModel = mongoose.model("heroSliders", heroSliderSchema);
 module.exports = heroSliderModel;

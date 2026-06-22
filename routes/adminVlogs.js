@@ -17,10 +17,12 @@ var storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+const imageValidator = require("../middleware/imageValidator");
+
 // Admin endpoints for Vlogs
 router.get("/admin/vlogs", loginCheck, vlogController.getAllAdminVlogs);
-router.post("/admin/vlogs", loginCheck, upload.single("thumbnail"), vlogController.postAddVlog);
-router.put("/admin/vlogs/:id", loginCheck, upload.single("thumbnail"), vlogController.putUpdateVlog);
+router.post("/admin/vlogs", loginCheck, upload.single("thumbnail"), imageValidator, vlogController.postAddVlog);
+router.put("/admin/vlogs/:id", loginCheck, upload.single("thumbnail"), imageValidator, vlogController.putUpdateVlog);
 router.delete("/admin/vlogs/:id", loginCheck, vlogController.deleteVlog);
 router.patch("/admin/vlogs/:id/publish", loginCheck, vlogController.patchPublishStatus);
 

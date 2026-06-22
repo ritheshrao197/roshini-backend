@@ -1,6 +1,18 @@
 const vlogModel = require("../models/vlogs");
 const vlogCategoryModel = require("../models/vlogCategories");
 const vlogTagModel = require("../models/vlogTags");
+const { uploadImage, deleteImage, replaceImage } = require("../services/cloudinaryUpload");
+const fs = require("fs");
+
+const safeUnlink = (filePath) => {
+  if (filePath && fs.existsSync(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch (e) {
+      console.error("[VlogController] Failed to delete local temp file:", e);
+    }
+  }
+};
 
 class Vlog {
   // PUBLIC ENDPOINTS
@@ -174,13 +186,19 @@ class Vlog {
 
   async postAddVlog(req, res) {
     let { title, content, excerpt, vCategory, tags, seoTitle, seoDescription, featured, isPublished } = req.body;
-    let thumbnail = req.file ? req.file.filename : req.body.thumbnail;
     
     if (!title || !content || !excerpt || !vCategory) {
+      if (req.file) safeUnlink(req.file.path);
       return res.status(400).json({ error: "All required fields must be filled" });
     }
 
+    let uploaded = null;
     try {
+      if (req.file) {
+        uploaded = await uploadImage(req.file, "blogs");
+        safeUnlink(req.file.path);
+      }
+
       let slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
       
       // Handle tags - optionally create them if they don't exist
@@ -207,7 +225,11 @@ class Vlog {
         slug,
         content,
         excerpt,
-        thumbnail,
+        image: uploaded ? {
+          publicId: uploaded.publicId,
+          secureUrl: uploaded.secureUrl,
+          alt: title
+        } : null,
         vCategory,
         vTags: tagIds,
         seoTitle,
@@ -224,21 +246,53 @@ class Vlog {
       }
     } catch (err) {
       console.log(err);
-      return res.status(500).json({ error: "Internal server error" });
+      if (uploaded) {
+        try { await deleteImage(uploaded.publicId); } catch(e) {}
+      }
+      if (req.file) safeUnlink(req.file.path);
+      return res.status(500).json({ error: "Internal server error: " + err.message });
     }
   }
 
   async putUpdateVlog(req, res) {
     let { id } = req.params;
     let { title, content, excerpt, vCategory, tags, seoTitle, seoDescription, featured } = req.body;
-    let thumbnail = req.file ? req.file.filename : req.body.thumbnail;
 
     if (!title || !content || !excerpt || !vCategory) {
+      if (req.file) safeUnlink(req.file.path);
       return res.status(400).json({ error: "All required fields must be filled" });
     }
 
+    let uploaded = null;
     try {
-      let slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      const existingVlog = await vlogModel.findById(id);
+      if (!existingVlog) {
+        if (req.file) safeUnlink(req.file.path);
+        return res.status(404).json({ error: "Vlog not found" });
+      }
+
+      let updateData = {
+        title,
+        slug: title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        content,
+        excerpt,
+        vCategory,
+        seoTitle,
+        seoDescription,
+        featured,
+        updatedAt: Date.now()
+      };
+
+      if (req.file) {
+        const oldPublicId = existingVlog.image ? existingVlog.image.publicId : null;
+        uploaded = await replaceImage(oldPublicId, req.file, "blogs");
+        safeUnlink(req.file.path);
+        updateData.image = {
+          publicId: uploaded.publicId,
+          secureUrl: uploaded.secureUrl,
+          alt: title
+        };
+      }
 
       let tagIds = [];
       let parsedTags = tags;
@@ -257,27 +311,19 @@ class Vlog {
           tagIds.push(tagObj._id);
         }
       }
+      updateData.vTags = tagIds;
 
-      let updatedVlog = await vlogModel.findByIdAndUpdate(id, {
-        title,
-        slug,
-        content,
-        excerpt,
-        thumbnail,
-        vCategory,
-        vTags: tagIds,
-        seoTitle,
-        seoDescription,
-        featured,
-        updatedAt: Date.now()
-      }, { new: true });
-
+      let updatedVlog = await vlogModel.findByIdAndUpdate(id, updateData, { new: true });
       if (updatedVlog) {
         return res.json({ success: "Vlog updated successfully", vlog: updatedVlog });
       }
     } catch (err) {
       console.log(err);
-      return res.status(500).json({ error: "Internal server error" });
+      if (uploaded) {
+        try { await deleteImage(uploaded.publicId); } catch(e) {}
+      }
+      if (req.file) safeUnlink(req.file.path);
+      return res.status(500).json({ error: "Internal server error: " + err.message });
     }
   }
 

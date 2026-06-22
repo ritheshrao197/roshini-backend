@@ -20,10 +20,12 @@ const cpUpload = upload.fields([
   { name: 'mobileImage', maxCount: 1 }
 ]);
 
+const imageValidator = require("../middleware/imageValidator");
+
 // Admin endpoints for Sliders
 router.get("/admin/sliders", loginCheck, sliderController.getAllAdminSliders);
-router.post("/admin/sliders", loginCheck, cpUpload, sliderController.postAddSlider);
-router.put("/admin/sliders/:id", loginCheck, cpUpload, sliderController.putUpdateSlider);
+router.post("/admin/sliders", loginCheck, cpUpload, imageValidator, sliderController.postAddSlider);
+router.put("/admin/sliders/:id", loginCheck, cpUpload, imageValidator, sliderController.putUpdateSlider);
 router.delete("/admin/sliders/:id", loginCheck, sliderController.deleteSlider);
 
 module.exports = router;

@@ -10,12 +10,10 @@ const categorySchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    cImage: {
-      type: String,
-    },
-    cloudinaryPublicId: {
-      type: String,
-      default: null,
+    image: {
+      publicId: { type: String, default: null },
+      secureUrl: { type: String, default: null },
+      alt: { type: String, default: "" }
     },
     cStatus: {
       type: String,
@@ -24,6 +22,17 @@ const categorySchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+categorySchema.set("toJSON", { virtuals: true });
+categorySchema.set("toObject", { virtuals: true });
+
+categorySchema.virtual("cImage").get(function () {
+  return this.image ? this.image.secureUrl : "";
+});
+
+categorySchema.virtual("cloudinaryPublicId").get(function () {
+  return this.image ? this.image.publicId : null;
+});
 
 const categoryModel = mongoose.model("categories", categorySchema);
 module.exports = categoryModel;

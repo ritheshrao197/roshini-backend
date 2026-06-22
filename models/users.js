@@ -26,8 +26,9 @@ const userSchema = new mongoose.Schema(
       type: Number,
     },
     userImage: {
-      type: String,
-      default: "user.png",
+      publicId: { type: String, default: null },
+      secureUrl: { type: String, default: null },
+      alt: { type: String, default: "User Profile Image" }
     },
     verified: {
       type: String,
@@ -42,15 +43,7 @@ const userSchema = new mongoose.Schema(
       default: [],
     },
     
-    // ── User Profile Extensions ──
-    profileImageUrl: {
-      type: String,
-      default: null,
-    },
-    profileImagePublicId: {
-      type: String,
-      default: null,
-    },
+    // profileImageUrl and profileImagePublicId are now handled as virtual getters for backward-compatibility.
     addresses: [
       {
         fullName: String,
@@ -121,6 +114,17 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+userSchema.set("toJSON", { virtuals: true });
+userSchema.set("toObject", { virtuals: true });
+
+userSchema.virtual("profileImageUrl").get(function () {
+  return this.userImage ? this.userImage.secureUrl : null;
+});
+
+userSchema.virtual("profileImagePublicId").get(function () {
+  return this.userImage ? this.userImage.publicId : null;
+});
 
 const userModel = mongoose.model("users", userSchema);
 module.exports = userModel;

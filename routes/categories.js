@@ -12,10 +12,13 @@ const { createCategorySchema } = require("../validators/product.validator");
 
 router.get("/all-category", cacheMiddleware("categories", 900), categoryController.getAllCategory);
 
+const imageValidator = require("../middleware/imageValidator");
+
 router.post(
   "/add-category",
   loginCheck,
   uploadMiddleware.single("cImage"),
+  imageValidator,
   validate(createCategorySchema),
   (req, res, next) => {
     clearCache("categories");

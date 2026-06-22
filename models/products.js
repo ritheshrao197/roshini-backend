@@ -27,14 +27,19 @@ const productSchema = new mongoose.Schema(
       type: ObjectId,
       ref: "categories",
     },
-    pImages: {
-      type: Array,
-      required: true,
+    image: {
+      publicId: { type: String, default: null },
+      secureUrl: { type: String, default: null },
+      alt: { type: String, default: "" }
     },
-    pImagePublicIds: {
-      type: Array,
-      default: [],
-    },
+    images: [
+      {
+        publicId: { type: String, required: true },
+        secureUrl: { type: String, required: true },
+        alt: { type: String, default: "" },
+        isPrimary: { type: Boolean, default: false }
+      }
+    ],
     pOffer: {
       type: String,
       default: null,
@@ -225,6 +230,25 @@ productSchema.index({ isDeleted: 1 });
 productSchema.index({ pCategory: 1 });
 productSchema.index({ pStatus: 1 });
 productSchema.index({ pName: "text", pDescription: "text", tags: "text" });
+
+// Set schema options to allow virtuals when converted to JSON or Object
+productSchema.set("toJSON", { virtuals: true });
+productSchema.set("toObject", { virtuals: true });
+
+// Virtuals for backward-compatibility
+productSchema.virtual("pImages").get(function () {
+  if (this.images && this.images.length > 0) {
+    return this.images.map((img) => img.secureUrl);
+  }
+  return this.image && this.image.secureUrl ? [this.image.secureUrl] : [];
+});
+
+productSchema.virtual("pImagePublicIds").get(function () {
+  if (this.images && this.images.length > 0) {
+    return this.images.map((img) => img.publicId);
+  }
+  return this.image && this.image.publicId ? [this.image.publicId] : [];
+});
 
 const productModel = mongoose.model("products", productSchema);
 module.exports = productModel;
