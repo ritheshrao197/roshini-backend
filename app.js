@@ -115,8 +115,9 @@ const clientUrl = process.env.CLIENT_URL ? process.env.CLIENT_URL.replace(/\/$/,
 const allowedOrigins = process.env.NODE_ENV === "production"
   ? [
       "https://roshinishomeproducts.com",
-      "https://admin.roshinishomeproducts.com"
-    ]
+      "https://admin.roshinishomeproducts.com",
+      clientUrl
+    ].filter(Boolean)
   : [
       clientUrl,
       "http://localhost:3000",
@@ -132,11 +133,11 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     
     const isAllowed = allowedOrigins.indexOf(origin) !== -1 || 
+                      origin.endsWith(".vercel.app") ||
                       (process.env.NODE_ENV !== "production" && (
                         origin.startsWith("http://localhost:") || 
                         origin.startsWith("http://127.0.0.1:") ||
-                        origin.startsWith("http://192.168.") ||
-                        origin.endsWith(".vercel.app")
+                        origin.startsWith("http://192.168.")
                       ));
                       
     if (isAllowed) {
