@@ -1,7 +1,9 @@
 const { z } = require("zod");
 
 const envSchema = z.zodSchema || z.object({
-  DATABASE: z.string().url("DATABASE must be a valid connection string (e.g. mongodb://...)"),
+  DATABASE: z.string().refine((val) => val.startsWith("mongodb://") || val.startsWith("mongodb+srv://"), {
+    message: "DATABASE must be a valid connection string (e.g. mongodb://...)",
+  }),
   JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters long"),
   PORT: z.preprocess((val) => Number(val) || 8000, z.number().int()),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),

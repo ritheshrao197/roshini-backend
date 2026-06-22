@@ -11,6 +11,8 @@ router.post("/signup", registerLimiter, validate(signupSchema), authController.p
 router.post("/signin", loginLimiter, validate(signinSchema), authController.postSignin);
 router.post("/signout", authController.logout);
 router.post("/refresh-token", authController.refreshTokenRotate);
+router.post("/forgot-password", loginLimiter, authController.forgotPassword);
+router.post("/reset-password", loginLimiter, authController.resetPassword);
 router.post("/user", loginCheck, isAuth, isAdmin, authController.allUser);
 
 module.exports = router;

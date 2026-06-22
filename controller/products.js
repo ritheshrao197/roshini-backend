@@ -396,14 +396,15 @@ class Product {
         let uploadedImages = [];
         try {
           if (editImages && editImages.length > 0) {
-            for (const img of editImages) {
+            const uploadPromises = editImages.map(async (img) => {
               const uploaded = await uploadImage(img, "products");
-              uploadedImages.push({
+              safeUnlink(img.path);
+              return {
                 publicId: uploaded.publicId,
                 secureUrl: uploaded.secureUrl,
-              });
-              safeUnlink(img.path);
-            }
+              };
+            });
+            uploadedImages = await Promise.all(uploadPromises);
           }
         } catch (uploadErr) {
           console.error("[ProductController] Error uploading edit images:", uploadErr);
@@ -413,6 +414,7 @@ class Product {
           if (editImages) {
             editImages.forEach((img) => safeUnlink(img.path));
           }
+          if (res.headersSent) return;
           return res.status(500).json({ error: "Failed to upload product images: " + uploadErr.message });
         }
 
@@ -421,7 +423,7 @@ class Product {
         for (const meta of imagesMetadata) {
           if (meta.publicId) {
             // Existing image. Make sure it belonged to the product
-            const existing = existingProduct.images.find(img => img.publicId === meta.publicId);
+            const existing = (existingProduct.images || []).find(img => img.publicId === meta.publicId);
             if (existing) {
               finalImages.push({
                 publicId: existing.publicId,
@@ -474,21 +476,27 @@ class Product {
         // Fallback for older API clients that don't pass imagesMetadata
         if (editImages.length > 10) {
           editImages.forEach((img) => safeUnlink(img.path));
+          if (res.headersSent) return;
           return res.status(400).json({ error: "Maximum 10 images allowed per product" });
         }
 
         let uploadedImages = [];
         try {
-          for (const img of editImages) {
+          const uploadPromises = editImages.map(async (img) => {
             const uploaded = await uploadImage(img, "products");
-            uploadedImages.push({
+            safeUnlink(img.path);
+            return {
               publicId: uploaded.publicId,
               secureUrl: uploaded.secureUrl,
               alt: pName || existingProduct.pName,
-              isPrimary: uploadedImages.length === 0,
-            });
-            safeUnlink(img.path);
+            };
+          });
+          const results = await Promise.all(uploadPromises);
+          if (results.length > 0) {
+            results[0].isPrimary = true;
           }
+          uploadedImages = results;
+
           editData.image = uploadedImages.length > 0 ? {
             publicId: uploadedImages[0].publicId,
             secureUrl: uploadedImages[0].secureUrl,
@@ -511,6 +519,7 @@ class Product {
           if (editImages) {
             editImages.forEach((img) => safeUnlink(img.path));
           }
+          if (res.headersSent) return;
           return res.status(500).json({ error: "Failed to upload product images: " + uploadErr.message });
         }
       }
@@ -528,6 +537,8 @@ class Product {
         { new: true }
       );
 
+      if (res.headersSent) return;
+
       if (updatedProduct) {
         return res.json({ success: "Product edited successfully" });
       }
@@ -537,6 +548,7 @@ class Product {
       if (editImages) {
         editImages.forEach((img) => safeUnlink(img.path));
       }
+      if (res.headersSent) return;
       return res.json({ error: "Error updating product details: " + err.message });
     }
   }

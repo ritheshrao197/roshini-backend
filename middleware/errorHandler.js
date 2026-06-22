@@ -2,6 +2,10 @@
  * Centralized Error Handling Middleware
  */
 function errorHandler(err, req, res, next) {
+  if (res.headersSent) {
+    return next(err);
+  }
+
   // Extract Request ID if attached
   const requestId = req.id || req.headers["x-request-id"] || "N/A";
   

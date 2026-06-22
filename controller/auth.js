@@ -300,6 +300,83 @@ class Auth {
     res.clearCookie("refreshToken", { domain: cookieDomain });
     return res.json({ message: "Logged out successfully" });
   }
+
+  async forgotPassword(req, res) {
+    const { email } = req.body;
+    if (!email) {
+      return res.json({ error: "Email is required" });
+    }
+
+    try {
+      const user = await userModel.findOne({ email });
+      if (!user) {
+        // Return success even if email not found to prevent harvesting
+        return res.json({ success: "If this email is registered in our system, a password reset link has been sent." });
+      }
+
+      // Generate a secure token
+      const token = crypto.randomBytes(32).toString("hex");
+      user.resetPasswordToken = token;
+      user.resetPasswordExpires = Date.now() + 3600000; // 1 hour expiration
+      await user.save();
+
+      // Dispatch reset link
+      const clientUrl = process.env.CLIENT_URL || "http://localhost:3000";
+      const resetLink = `${clientUrl}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+      
+      console.log(`[forgotPassword] Generated reset link: ${resetLink}`);
+      
+      await EmailService.sendPasswordReset(email, resetLink);
+
+      return res.json({ success: "Password reset link has been sent to your email address." });
+    } catch (err) {
+      console.error("[AuthController] Forgot password error:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  async resetPassword(req, res) {
+    const { email, token, newPassword } = req.body;
+    if (!email || !token || !newPassword) {
+      return res.json({ error: "All fields are required" });
+    }
+    if (newPassword.length < 8 || newPassword.length > 255) {
+      return res.json({ error: "Password must be between 8 and 255 characters" });
+    }
+
+    try {
+      const user = await userModel.findOne({
+        email,
+        resetPasswordToken: token,
+        resetPasswordExpires: { $gt: Date.now() }
+      });
+
+      if (!user) {
+        return res.json({ error: "Invalid or expired password reset link." });
+      }
+
+      // Hash and save new password
+      user.password = bcrypt.hashSync(newPassword, 10);
+      user.resetPasswordToken = null;
+      user.resetPasswordExpires = null;
+      await user.save();
+
+      // Log Audit Log Trail
+      await logAudit({
+        adminId: user._id,
+        action: "PASSWORD_RESET",
+        entityType: "user",
+        entityId: user._id,
+        oldValue: null,
+        newValue: { success: true },
+      });
+
+      return res.json({ success: "Your password has been successfully reset. You can now login with your new password." });
+    } catch (err) {
+      console.error("[AuthController] Reset password error:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  }
 }
 
 const authController = new Auth();
