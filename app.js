@@ -5,7 +5,7 @@
 
 const express = require("express");
 const app = express();
-app.set("trust proxy", 1); // Trust reverse proxy headers (Render / Cloudflare)
+app.set("trust proxy", true); // Trust all proxy headers (Render / Cloudflare)
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
