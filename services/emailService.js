@@ -15,14 +15,26 @@ class EmailService {
     }
     
     try {
-      const data = await resend.emails.send({
+      const response = await resend.emails.send({
         from: `Roshinis Home Products <${fromEmail}>`,
         to,
         subject,
         html,
         text,
       });
-      console.log(`[EmailService] Email sent to ${to} with ID ${data.id}`);
+
+      if (response.error) {
+        console.error(`[EmailService] Failed to send email to ${to}:`, response.error);
+        await new emailLogModel({
+          to,
+          subject,
+          status: "Failed",
+          errorDetails: response.error.message || String(response.error),
+        }).save();
+        return response;
+      }
+
+      console.log(`[EmailService] Email sent to ${to} with ID ${response.data ? response.data.id : "unknown"}`);
 
       // Log success to database
       await new emailLogModel({
@@ -31,7 +43,7 @@ class EmailService {
         status: "Sent",
       }).save();
 
-      return data;
+      return response;
     } catch (error) {
       console.error(`[EmailService] Failed to send email to ${to}:`, error);
       // Log failure to database
