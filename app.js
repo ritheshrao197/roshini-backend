@@ -60,6 +60,10 @@ const CreateAllFolder = require("./config/uploadFolderCreateScript");
 
 /* Create All Uploads Folder if not exists | For Uploading Images */
 CreateAllFolder();
+require("dotenv").config();
+// Import cron jobs
+require("./cron/orderExpiration");
+require("./cron/paymentReconciliation");
 
 // Database Connection
 mongoose

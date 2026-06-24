@@ -2,19 +2,26 @@ const express = require("express");
 const router = express.Router();
 const paymentController = require("../controller/payments");
 const { loginCheck } = require("../middleware/auth");
-
 const { checkoutLimiter } = require("../middleware/rateLimiter");
 
-// PhonePe — initiate (requires auth)
-router.post("/phonepe", loginCheck, checkoutLimiter, paymentController.initiatePhonePe);
+// Unified Initiate Payment Endpoint
+router.post("/create", loginCheck, checkoutLimiter, paymentController.initiatePayment);
 
-// PhonePe — server-side status verification (called from /payment-status page)
-router.get("/phonepe-status", paymentController.verifyPhonePeStatus);
+// Webhooks
+router.post("/payu-webhook", paymentController.payuWebhook);
+router.post("/phonepe-webhook", paymentController.phonepeWebhook);
 
-// PhonePe — webhook/callback from PhonePe servers (no auth, verified by signature)
-router.post("/phonepe-webhook", paymentController.phonePeWebhook);
+// Polling Fallback Verification
+router.get("/:transactionId/verify", paymentController.verifyPayment);
 
-// PayU — initiate (requires auth)
-router.post("/payu", loginCheck, checkoutLimiter, paymentController.initiatePayU);
+// For backwards compatibility during transition from the old logic
+router.post("/phonepe", loginCheck, checkoutLimiter, (req, res, next) => {
+    req.body.gateway = "PHONEPE";
+    paymentController.initiatePayment(req, res, next);
+});
+router.post("/payu", loginCheck, checkoutLimiter, (req, res, next) => {
+    req.body.gateway = "PAYU";
+    paymentController.initiatePayment(req, res, next);
+});
 
 module.exports = router;

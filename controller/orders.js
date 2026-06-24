@@ -42,6 +42,27 @@ class Order {
     }
   }
 
+  async getOrderStatus(req, res) {
+    try {
+      const { orderNumber } = req.params;
+      const order = await orderModel.findOne({ orderNumber });
+      
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      return res.status(200).json({
+        orderNumber: order.orderNumber,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        transactionId: order.payment ? order.payment.transactionId : order.transactionId,
+      });
+    } catch (err) {
+      console.error("[OrderController] getOrderStatus error:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
   async postCreateOrder(req, res) {
     let { allProduct, user, transactionId, address, phone, couponCode } = req.body;
     if (

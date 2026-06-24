@@ -3,12 +3,20 @@ const { ObjectId } = mongoose.Schema.Types;
 
 const orderSchema = new mongoose.Schema(
   {
+    orderNumber: {
+      type: String,
+      unique: true,
+      index: true,
+    },
     allProduct: [
       {
         id: { type: ObjectId, ref: "products" },
         quantitiy: Number,
       },
     ],
+    cartSnapshot: {
+      type: mongoose.Schema.Types.Mixed,
+    },
     user: {
       type: ObjectId,
       ref: "users",
@@ -46,19 +54,19 @@ const orderSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      default: "Not processed",
+      default: "PENDING",
       enum: [
-        "Not processed",
-        "Processing",
-        "Shipped",
-        "Delivered",
-        "Cancelled",
+        "PENDING",
+        "CONFIRMED",
+        "SHIPPED",
+        "DELIVERED",
+        "CANCELLED",
       ],
     },
     paymentStatus: {
       type: String,
-      default: "Pending",
-      enum: ["Pending", "Paid", "Failed", "Refunded"],
+      default: "PENDING",
+      enum: ["PENDING", "SUCCESS", "FAILED", "REFUNDED"],
     },
     shipmentTrackingId: {
       type: String,
@@ -66,13 +74,33 @@ const orderSchema = new mongoose.Schema(
     invoiceUrl: {
       type: String,
     },
-    paymentGateway: {
-      type: String,
-      enum: ["Braintree", "PhonePe", "PayU", "COD"],
-      default: "Braintree",
+    payment: {
+      gateway: {
+        type: String,
+        enum: ["PHONEPE", "PAYU", "BRAINTREE", "COD"],
+      },
+      transactionId: String,
+      gatewayTransactionId: String,
+      amount: Number,
+      paidAt: Date,
+      response: mongoose.Schema.Types.Mixed,
+      hashVerified: {
+        type: Boolean,
+        default: false,
+      },
     },
-    gatewayResponse: {
-      type: mongoose.Schema.Types.Mixed,
+    paymentEvents: [
+      {
+        event: String,
+        gateway: String,
+        transactionId: String,
+        createdAt: { type: Date, default: Date.now },
+        metadata: mongoose.Schema.Types.Mixed,
+      },
+    ],
+    expiresAt: {
+      type: Date,
+      index: true,
     },
     refundStatus: {
       type: String,
