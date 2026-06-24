@@ -1,4 +1,5 @@
 const rateLimit = require("express-rate-limit");
+const { ipKeyGenerator } = require("express-rate-limit");
 
 // Standard message for rate limit errors
 const limitMessage = (limit, minutes) => ({
@@ -6,7 +7,7 @@ const limitMessage = (limit, minutes) => ({
   limit,
 });
 
-// Custom IP resolver to bypass proxy hop issues (e.g. Cloudflare -> Render)
+// Custom IP resolver — reads real client IP from Cloudflare / Render proxy headers
 const getClientIp = (req) => {
   if (req.headers["cf-connecting-ip"]) {
     return req.headers["cf-connecting-ip"];
@@ -14,8 +15,11 @@ const getClientIp = (req) => {
   if (req.headers["x-forwarded-for"]) {
     return req.headers["x-forwarded-for"].split(",")[0].trim();
   }
-  return req.ip;
+  return req.ip || req.socket?.remoteAddress || "unknown";
 };
+
+// Wrap with ipKeyGenerator so express-rate-limit handles IPv6 correctly (required in v7+)
+const keyGen = ipKeyGenerator(getClientIp);
 
 // Login Limiter: 10 requests per 15 minutes
 const loginLimiter = rateLimit({
@@ -24,7 +28,7 @@ const loginLimiter = rateLimit({
   message: limitMessage(10, 15),
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: getClientIp,
+  keyGenerator: keyGen,
 });
 
 // Register Limiter: 10 requests per hour
@@ -34,7 +38,7 @@ const registerLimiter = rateLimit({
   message: limitMessage(10, 60),
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: getClientIp,
+  keyGenerator: keyGen,
 });
 
 // Checkout Limiter: 20 requests per 15 minutes
@@ -44,7 +48,7 @@ const checkoutLimiter = rateLimit({
   message: limitMessage(20, 15),
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: getClientIp,
+  keyGenerator: keyGen,
 });
 
 // Coupon Limiter: 20 requests per hour
@@ -54,7 +58,7 @@ const couponLimiter = rateLimit({
   message: limitMessage(20, 60),
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: getClientIp,
+  keyGenerator: keyGen,
 });
 
 module.exports = {
