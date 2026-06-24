@@ -2,6 +2,9 @@ const orderModel = require("../models/orders");
 const productModel = require("../models/products");
 const userModel = require("../models/users");
 const EmailService = require("../services/emailService");
+const couponValidationService = require("../services/coupon/couponValidationService");
+const couponCalculationService = require("../services/coupon/couponCalculationService");
+const couponUsageService = require("../services/coupon/couponUsageService");
 
 class Order {
   async getAllOrders(req, res) {
@@ -40,11 +43,10 @@ class Order {
   }
 
   async postCreateOrder(req, res) {
-    let { allProduct, user, amount, transactionId, address, phone } = req.body;
+    let { allProduct, user, transactionId, address, phone, couponCode } = req.body;
     if (
       !allProduct ||
       !user ||
-      !amount ||
       !transactionId ||
       !address ||
       !phone
@@ -59,7 +61,15 @@ class Order {
         return res.status(409).json({ error: "Order with this transaction ID already processed" });
       }
 
-      // 2. Lock & Validate inventory stock
+      // 2. Fetch User
+      const userObj = await userModel.findById(user);
+      if (!userObj) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // 3. Lock & Validate inventory stock, calculate subtotal securely
+      let subtotal = 0;
+      const cartItems = [];
       for (const item of allProduct) {
         const product = await productModel.findById(item.id);
         if (!product) {
@@ -70,9 +80,46 @@ class Order {
             error: `Insufficient stock for product ${product.pName}. Available: ${product.pQuantity}`,
           });
         }
+        subtotal += product.pPrice * item.quantitiy;
+        cartItems.push({ product, quantity: item.quantitiy });
       }
 
-      // 3. Atomically decrement stock
+      // 4. Calculate Shipping and Coupon Discounts
+      let baseShippingCharge = subtotal >= 1000 ? 0 : 99;
+      let finalShippingCharge = baseShippingCharge;
+      let couponDiscount = 0;
+      let couponSnapshot = null;
+
+      if (couponCode) {
+        const validation = await couponValidationService.validate(couponCode, userObj, cartItems);
+        if (!validation.valid) {
+          return res.status(400).json({ error: validation.error });
+        }
+
+        const calc = couponCalculationService.calculate(validation.coupon, cartItems, baseShippingCharge);
+        if (calc.error) {
+          return res.status(400).json({ error: calc.error });
+        }
+
+        couponDiscount = calc.discountAmount;
+        finalShippingCharge = calc.finalShippingCharge;
+
+        couponSnapshot = {
+          code: validation.coupon.code,
+          type: validation.coupon.type,
+          value: validation.coupon.value,
+          discountAmount: couponDiscount
+        };
+      }
+
+      const total = Math.max(0, subtotal - couponDiscount + finalShippingCharge);
+
+      // Verify the frontend's expected amount if sent (optional, but good for UX)
+      if (req.body.amount && Math.abs(req.body.amount - total) > 1) {
+        console.warn(`Amount mismatch. Frontend: ${req.body.amount}, Backend: ${total}`);
+      }
+
+      // 5. Atomically decrement stock
       for (const item of allProduct) {
         await productModel.findByIdAndUpdate(item.id, {
           $inc: {
@@ -82,23 +129,37 @@ class Order {
         });
       }
 
-      // 4. Create and save order
+      // 6. Create and save order
       const newOrder = new orderModel({
         allProduct,
         user,
-        amount,
+        amount: total, // Secure total
         transactionId,
         address,
         phone,
+        coupon: couponSnapshot,
+        pricing: {
+          subtotal,
+          couponDiscount,
+          shippingDiscount: baseShippingCharge - finalShippingCharge,
+          shippingCharge: finalShippingCharge,
+          tax: 0,
+          total
+        }
       });
       const save = await newOrder.save();
+
       if (save) {
-        // Fetch user email for notifications
-        const userObj = await userModel.findById(user);
-        if (userObj && userObj.email) {
-          EmailService.sendOrderConfirmation(userObj.email, save._id, amount);
+        // Record coupon usage
+        if (couponCode) {
+          await couponUsageService.recordUsage(couponCode, user, save._id);
         }
-        EmailService.sendAdminNewOrderAlert("admin@roshinishomeproducts.com", save._id, amount);
+
+        if (userObj.email) {
+          EmailService.sendOrderConfirmation(userObj.email, save._id, total);
+        }
+        EmailService.sendAdminNewOrderAlert("admin@roshinishomeproducts.com", save._id, total);
+        
         return res.json({ success: "Order created successfully", orderId: save._id });
       }
     } catch (err) {

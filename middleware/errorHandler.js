@@ -24,10 +24,12 @@ function errorHandler(err, req, res, next) {
     statusCode = 400;
     errorResponse.code = "VALIDATION_ERROR";
     errorResponse.message = "Request validation failed";
-    errorResponse.errors = err.errors.map((e) => ({
-      field: e.path.join("."),
-      message: e.message,
-    }));
+    errorResponse.errors = err.errors && Array.isArray(err.errors) 
+      ? err.errors.map((e) => ({
+          field: e.path ? e.path.join(".") : "unknown",
+          message: e.message,
+        }))
+      : [{ message: err.message }];
   }
   // 2. Mongoose Cast Error (e.g. invalid ObjectId)
   else if (err.name === "CastError") {

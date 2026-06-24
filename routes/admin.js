@@ -8,7 +8,13 @@ const validate = require("../middleware/validate");
 const { createCouponSchema, applyCouponSchema } = require("../validators/coupon.validator");
 
 router.get("/admin/analytics", loginCheck, isAdmin, adminController.getDashboardAnalytics);
+
+// Coupon API routes
+router.get("/admin/coupons", loginCheck, isAdmin, adminController.getAllCoupons);
 router.post("/admin/coupon", loginCheck, isAdmin, validate(createCouponSchema), adminController.createCoupon);
+router.put("/admin/coupon/:id", loginCheck, isAdmin, adminController.updateCoupon);
+router.delete("/admin/coupon/:id", loginCheck, isAdmin, adminController.deleteCoupon);
+
 router.get("/admin/orders/export", loginCheck, isAdmin, adminController.exportOrdersCSV);
 router.post("/coupon/apply", loginCheck, couponLimiter, validate(applyCouponSchema), adminController.applyCoupon);
 

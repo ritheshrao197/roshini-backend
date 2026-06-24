@@ -18,6 +18,20 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    coupon: {
+      code: String,
+      type: { type: String, enum: ["percentage", "fixed", "shipping", "tiered"] },
+      value: Number,
+      discountAmount: Number,
+    },
+    pricing: {
+      subtotal: Number,
+      couponDiscount: Number,
+      shippingDiscount: Number,
+      shippingCharge: Number,
+      tax: Number,
+      total: Number,
+    },
     transactionId: {
       type: String,
       required: true,

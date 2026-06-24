@@ -6,34 +6,55 @@ const createCouponSchema = z.object({
     .min(1, "Coupon code cannot be empty")
     .toUpperCase()
     .trim(),
-  discountType: z.enum(["Percentage", "Fixed"], {
-    required_error: "Discount type must be either 'Percentage' or 'Fixed'",
+  description: z.string().optional(),
+  type: z.enum(["percentage", "fixed", "shipping", "tiered"], {
+    required_error: "Type must be percentage, fixed, shipping, or tiered",
   }),
-  discountAmount: z.preprocess(
-    (val) => Number(val),
-    z.number().min(0, "Discount amount must be greater than or equal to 0")
+  value: z.preprocess(
+    (val) => (val !== undefined && val !== "" ? Number(val) : undefined),
+    z.number().min(0, "Value must be positive").optional()
   ),
   minOrderAmount: z.preprocess(
-    (val) => (val !== undefined ? Number(val) : 0),
-    z.number().min(0, "Minimum order amount must be greater than or equal to 0").optional()
+    (val) => (val !== undefined && val !== "" ? Number(val) : 0),
+    z.number().min(0).optional()
   ),
-  expiryDate: z.preprocess(
+  maxDiscount: z.preprocess(
+    (val) => (val !== undefined && val !== "" ? Number(val) : undefined),
+    z.number().min(0).optional()
+  ),
+  usageLimit: z.preprocess(
+    (val) => (val !== undefined && val !== "" ? Number(val) : undefined),
+    z.number().int().min(1).optional()
+  ),
+  perUserLimit: z.preprocess(
+    (val) => (val !== undefined && val !== "" ? Number(val) : 1),
+    z.number().int().min(1).optional()
+  ),
+  firstOrderOnly: z.boolean().optional().default(false),
+  applicableProducts: z.array(z.string()).optional(),
+  applicableCategories: z.array(z.string()).optional(),
+  startDate: z.preprocess(
+    (val) => (val ? new Date(val) : new Date()),
+    z.date().optional()
+  ),
+  endDate: z.preprocess(
     (val) => new Date(val),
     z.date().refine((date) => date > new Date(), {
-      message: "Expiry date must be in the future",
+      message: "End date must be in the future",
     })
   ),
   isActive: z.boolean().optional().default(true),
-  maxUses: z.preprocess(
-    (val) => (val !== undefined && val !== "" ? Number(val) : null),
-    z.number().int().min(1, "Max uses must be at least 1").nullable().optional()
+  priority: z.preprocess(
+    (val) => (val !== undefined && val !== "" ? Number(val) : 0),
+    z.number().int().optional()
   ),
-  userEmail: z
-    .string()
-    .email("User email is invalid")
-    .nullable()
-    .optional()
-    .or(z.literal("")),
+  isStackable: z.boolean().optional().default(false),
+  rules: z.array(
+    z.object({
+      minQuantity: z.number(),
+      discount: z.number(),
+    })
+  ).optional(),
 });
 
 const applyCouponSchema = z.object({
@@ -42,6 +63,7 @@ const applyCouponSchema = z.object({
     .min(1, "Coupon code cannot be empty")
     .toUpperCase()
     .trim(),
+  cartItems: z.array(z.any()).nonempty({ message: "Cart items are required" }),
 });
 
 module.exports = {

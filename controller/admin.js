@@ -37,27 +37,27 @@ class AdminController {
     }
   }
 
-  // 2. COUPON ENGINE: CREATE COUPON
-  async createCoupon(req, res) {
-    const { code, discountType, discountAmount, minOrderAmount, expiryDate } = req.body;
-    if (!code || !discountType || !discountAmount || !expiryDate) {
-      return res.status(400).json({ error: "Required fields are missing" });
-    }
-
+  // 2. COUPON ENGINE: GET ALL COUPONS
+  async getAllCoupons(req, res) {
     try {
-      const existing = await couponModel.findOne({ code: code.toUpperCase() });
+      const coupons = await couponModel.find({}).sort({ createdAt: -1 });
+      return res.status(200).json({ success: true, coupons });
+    } catch (err) {
+      console.error("Fetch Coupons Error:", err);
+      return res.status(500).json({ error: "Failed to fetch coupons" });
+    }
+  }
+
+  // 3. COUPON ENGINE: CREATE COUPON
+  async createCoupon(req, res) {
+    const data = req.body;
+    try {
+      const existing = await couponModel.findOne({ code: data.code.toUpperCase() });
       if (existing) {
         return res.status(400).json({ error: "Coupon code already exists" });
       }
 
-      const newCoupon = new couponModel({
-        code: code.toUpperCase(),
-        discountType,
-        discountAmount,
-        minOrderAmount,
-        expiryDate,
-      });
-
+      const newCoupon = new couponModel(data);
       await newCoupon.save();
       return res.status(201).json({ success: "Coupon created successfully", coupon: newCoupon });
     } catch (err) {
@@ -66,42 +66,87 @@ class AdminController {
     }
   }
 
-  // 3. COUPON ENGINE: APPLY COUPON
+  // 4. COUPON ENGINE: UPDATE COUPON
+  async updateCoupon(req, res) {
+    const { id } = req.params;
+    const data = req.body;
+    try {
+      const updated = await couponModel.findByIdAndUpdate(id, data, { new: true });
+      if (!updated) return res.status(404).json({ error: "Coupon not found" });
+
+      const redisClient = require("../config/redis");
+      if (redisClient) {
+         await redisClient.del(`coupon:code:${updated.code}`).catch(console.warn);
+      }
+
+      return res.status(200).json({ success: "Coupon updated successfully", coupon: updated });
+    } catch (err) {
+      console.error("Coupon Update Error:", err);
+      return res.status(500).json({ error: "Failed to update coupon" });
+    }
+  }
+
+  // 5. COUPON ENGINE: DELETE COUPON
+  async deleteCoupon(req, res) {
+    const { id } = req.params;
+    try {
+      const deleted = await couponModel.findByIdAndDelete(id);
+      if (!deleted) return res.status(404).json({ error: "Coupon not found" });
+
+      const redisClient = require("../config/redis");
+      if (redisClient) {
+         await redisClient.del(`coupon:code:${deleted.code}`).catch(console.warn);
+      }
+
+      return res.status(200).json({ success: "Coupon deleted successfully" });
+    } catch (err) {
+      console.error("Coupon Deletion Error:", err);
+      return res.status(500).json({ error: "Failed to delete coupon" });
+    }
+  }
+
+  // 6. COUPON ENGINE: APPLY COUPON (Validation Endpoint for Cart)
   async applyCoupon(req, res) {
-    const { code, orderAmount } = req.body;
-    if (!code || !orderAmount) {
-      return res.status(400).json({ error: "Code and order amount are required" });
+    const { code, cartItems } = req.body;
+    const user = req.user; // Assuming loginCheck sets req.user
+
+    if (!code || !cartItems || !Array.isArray(cartItems)) {
+      return res.status(400).json({ error: "Code and cartItems array are required" });
     }
 
     try {
-      const coupon = await couponModel.findOne({ code: code.toUpperCase(), isActive: true });
-      if (!coupon) {
-        return res.status(404).json({ error: "Invalid coupon code" });
+      const couponValidationService = require("../services/coupon/couponValidationService");
+      const couponCalculationService = require("../services/coupon/couponCalculationService");
+
+      const validation = await couponValidationService.validate(code, user, cartItems);
+      if (!validation.valid) {
+        return res.status(400).json({ error: validation.error });
       }
 
-      if (new Date() > new Date(coupon.expiryDate)) {
-        return res.status(400).json({ error: "Coupon code has expired" });
+      // Calculate initial subtotal to determine base shipping
+      let subtotal = 0;
+      for (const item of cartItems) {
+         // This assumes the frontend passes product price, but in a real secure flow, 
+         // we should re-fetch the products from the DB. 
+         // Since this is just for the cart UI preview, trusting the frontend's cartItems structure is OK for now,
+         // because the actual postCreateOrder endpoint re-fetches and re-verifies anyway.
+         if (item.product && item.product.pPrice) {
+            subtotal += item.product.pPrice * item.quantity;
+         }
       }
 
-      if (orderAmount < coupon.minOrderAmount) {
-        return res.status(400).json({
-          error: `Minimum order amount to apply this coupon is ₹${coupon.minOrderAmount}`,
-        });
+      const baseShippingCharge = subtotal >= 1000 ? 0 : 99;
+      
+      const calc = couponCalculationService.calculate(validation.coupon, cartItems, baseShippingCharge);
+      if (calc.error) {
+        return res.status(400).json({ error: calc.error });
       }
-
-      let discount = 0;
-      if (coupon.discountType === "Percentage") {
-        discount = (orderAmount * coupon.discountAmount) / 100;
-      } else {
-        discount = coupon.discountAmount;
-      }
-
-      const finalAmount = Math.max(0, orderAmount - discount);
 
       return res.status(200).json({
         success: true,
-        discount,
-        finalAmount,
+        discount: calc.discountAmount,
+        finalShippingCharge: calc.finalShippingCharge,
+        eligibleSubtotal: calc.eligibleSubtotal,
         message: "Coupon applied successfully",
       });
     } catch (err) {

@@ -44,21 +44,82 @@ class PaymentController {
 
   /* ─── 1. INITIATE PHONEPE ─────────────────────────────────────── */
   async initiatePhonePe(req, res) {
-    const { amount, user, allProduct, address, phone } = req.body;
+    const { user, allProduct, address, phone, couponCode } = req.body;
 
-    if (!amount || !user || !allProduct || !address || !phone) {
+    if (!user || !allProduct || !address || !phone) {
       return res.status(400).json({ error: "All fields are required" });
     }
 
-    const merchantTransactionId = `TXN-PP-${Date.now()}-${Math.floor(Math.random() * 9999)}`;
-    const amountInPaise         = Math.round(amount * 100);
-
     try {
+      // 1. Fetch User
+      const userObj = await userModel.findById(user);
+      if (!userObj) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // 2. Lock & Validate inventory stock, calculate subtotal securely
+      let subtotal = 0;
+      const cartItems = [];
+      for (const item of allProduct) {
+        const product = await productModel.findById(item.id);
+        if (!product) {
+          return res.status(404).json({ error: `Product not found` });
+        }
+        if (product.pQuantity < item.quantitiy) {
+          return res.status(400).json({
+            error: `Insufficient stock for product ${product.pName}. Available: ${product.pQuantity}`,
+          });
+        }
+        subtotal += product.pPrice * item.quantitiy;
+        cartItems.push({ product, quantity: item.quantitiy });
+      }
+
+      // 3. Calculate Shipping and Coupon Discounts
+      let baseShippingCharge = subtotal >= 1000 ? 0 : 99;
+      let finalShippingCharge = baseShippingCharge;
+      let couponDiscount = 0;
+      let couponSnapshot = null;
+
+      if (couponCode) {
+        const couponValidationService = require("../services/coupon/couponValidationService");
+        const couponCalculationService = require("../services/coupon/couponCalculationService");
+
+        const validation = await couponValidationService.validate(couponCode, userObj, cartItems);
+        if (!validation.valid) {
+          return res.status(400).json({ error: validation.error });
+        }
+
+        const calc = couponCalculationService.calculate(validation.coupon, cartItems, baseShippingCharge);
+        if (calc.error) {
+          return res.status(400).json({ error: calc.error });
+        }
+
+        couponDiscount = calc.discountAmount;
+        finalShippingCharge = calc.finalShippingCharge;
+
+        couponSnapshot = {
+          code: validation.coupon.code,
+          type: validation.coupon.type,
+          value: validation.coupon.value,
+          discountAmount: couponDiscount
+        };
+      }
+
+      const total = Math.max(0, subtotal - couponDiscount + finalShippingCharge);
+
+      // Verify frontend amount if provided
+      if (req.body.amount && Math.abs(req.body.amount - total) > 1) {
+        console.warn(`Amount mismatch. Frontend: ${req.body.amount}, Backend: ${total}`);
+      }
+
+      const merchantTransactionId = `TXN-PP-${Date.now()}-${Math.floor(Math.random() * 9999)}`;
+      const amountInPaise         = Math.round(total * 100);
+
       // 1a. Build payload
       const payload = {
         merchantId:            PHONEPE_MERCHANT_ID,
         merchantTransactionId: merchantTransactionId,
-        merchantUserId:        `USER-${user._id || user}`,
+        merchantUserId:        `USER-${userObj._id}`,
         amount:                amountInPaise,
         redirectUrl:           `${CLIENT_URL}/payment-status?txnId=${merchantTransactionId}`,
         redirectMode:          "GET",
@@ -73,14 +134,23 @@ class PaymentController {
       // 1b. Create pending order record
       const newOrder = new orderModel({
         allProduct,
-        user:           user._id || user,
-        amount,
+        user:           userObj._id,
+        amount:         total,
         transactionId:  merchantTransactionId,
         address,
         phone,
         paymentGateway: "PhonePe",
         paymentStatus:  "Pending",
         status:         "Not processed",
+        coupon: couponSnapshot,
+        pricing: {
+          subtotal,
+          couponDiscount,
+          shippingDiscount: baseShippingCharge - finalShippingCharge,
+          shippingCharge: finalShippingCharge,
+          tax: 0,
+          total
+        }
       });
       const savedOrder = await newOrder.save();
 
@@ -88,8 +158,8 @@ class PaymentController {
       const paymentRecord = new paymentModel({
         transactionId: merchantTransactionId,
         orderId:       savedOrder._id,
-        userId:        user._id || user,
-        amount,
+        userId:        userObj._id,
+        amount:        total,
         amountInPaise,
         gateway:       "PhonePe",
         status:        "Pending",
@@ -347,33 +417,103 @@ class PaymentController {
 
   /* ─── 4. PAYU INTEGRATION ─────────────────────────────────────── */
   async initiatePayU(req, res) {
-    const { amount, user, allProduct, address, phone } = req.body;
-    if (!amount || !user) {
+    const { user, allProduct, address, phone, couponCode } = req.body;
+    if (!user || !allProduct || !address || !phone) {
       return res.status(400).json({ error: "All fields are required" });
     }
 
     try {
+      // 1. Fetch User
+      const userObj = await userModel.findById(user);
+      if (!userObj) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // 2. Lock & Validate inventory stock, calculate subtotal securely
+      let subtotal = 0;
+      const cartItems = [];
+      for (const item of allProduct) {
+        const product = await productModel.findById(item.id);
+        if (!product) {
+          return res.status(404).json({ error: `Product not found` });
+        }
+        if (product.pQuantity < item.quantitiy) {
+          return res.status(400).json({
+            error: `Insufficient stock for product ${product.pName}. Available: ${product.pQuantity}`,
+          });
+        }
+        subtotal += product.pPrice * item.quantitiy;
+        cartItems.push({ product, quantity: item.quantitiy });
+      }
+
+      // 3. Calculate Shipping and Coupon Discounts
+      let baseShippingCharge = subtotal >= 1000 ? 0 : 99;
+      let finalShippingCharge = baseShippingCharge;
+      let couponDiscount = 0;
+      let couponSnapshot = null;
+
+      if (couponCode) {
+        const couponValidationService = require("../services/coupon/couponValidationService");
+        const couponCalculationService = require("../services/coupon/couponCalculationService");
+
+        const validation = await couponValidationService.validate(couponCode, userObj, cartItems);
+        if (!validation.valid) {
+          return res.status(400).json({ error: validation.error });
+        }
+
+        const calc = couponCalculationService.calculate(validation.coupon, cartItems, baseShippingCharge);
+        if (calc.error) {
+          return res.status(400).json({ error: calc.error });
+        }
+
+        couponDiscount = calc.discountAmount;
+        finalShippingCharge = calc.finalShippingCharge;
+
+        couponSnapshot = {
+          code: validation.coupon.code,
+          type: validation.coupon.type,
+          value: validation.coupon.value,
+          discountAmount: couponDiscount
+        };
+      }
+
+      const total = Math.max(0, subtotal - couponDiscount + finalShippingCharge);
+
+      // Verify frontend amount if provided
+      if (req.body.amount && Math.abs(req.body.amount - total) > 1) {
+        console.warn(`Amount mismatch. Frontend: ${req.body.amount}, Backend: ${total}`);
+      }
+
       const txnid       = `TXN-PU-${Date.now()}-${Math.floor(Math.random() * 9999)}`;
       const key         = process.env.PAYU_MERCHANT_KEY || "";
       const salt        = process.env.PAYU_SALT || "";
       const productinfo = "Roshinis Home Products Purchase";
-      const firstname   = user.name  || "Customer";
-      const email       = user.email || "customer@example.com";
+      const firstname   = userObj.name  || "Customer";
+      const email       = userObj.email || "customer@example.com";
 
       // SHA512: key|txnid|amount|productinfo|firstname|email|udf1-5||||||salt
-      const hashString = `${key}|${txnid}|${amount}|${productinfo}|${firstname}|${email}|||||||||||${salt}`;
+      const hashString = `${key}|${txnid}|${total}|${productinfo}|${firstname}|${email}|||||||||||${salt}`;
       const hash       = crypto.createHash("sha512").update(hashString).digest("hex");
 
       // Save pending order
       const newOrder = new orderModel({
         allProduct,
-        user:           user._id || user,
-        amount,
+        user:           userObj._id,
+        amount:         total,
         transactionId:  txnid,
         address,
         phone,
         paymentGateway: "PayU",
         paymentStatus:  "Pending",
+        coupon: couponSnapshot,
+        pricing: {
+          subtotal,
+          couponDiscount,
+          shippingDiscount: baseShippingCharge - finalShippingCharge,
+          shippingCharge: finalShippingCharge,
+          tax: 0,
+          total
+        }
       });
       const savedOrder = await newOrder.save();
 
@@ -381,9 +521,9 @@ class PaymentController {
       await new paymentModel({
         transactionId: txnid,
         orderId:       savedOrder._id,
-        userId:        user._id || user,
-        amount,
-        amountInPaise: Math.round(amount * 100),
+        userId:        userObj._id,
+        amount:        total,
+        amountInPaise: Math.round(total * 100),
         gateway:       "PayU",
         status:        "Pending",
       }).save();
