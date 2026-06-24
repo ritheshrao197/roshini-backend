@@ -17,6 +17,41 @@ const customizeSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    type: {
+      type: String,
+      default: "slide", // Can be 'slide' or 'settings'
+    },
+    logoImage: {
+      type: String,
+    },
+    shopName: {
+      type: String,
+      default: "Roshini's",
+    },
+    shopSubtitle: {
+      type: String,
+      default: "Home Products",
+    },
+    themePrimaryColor: {
+      type: String,
+      default: "#6B3E26",
+    },
+    themePrimaryColorDark: {
+      type: String,
+      default: "#4e2c18",
+    },
+    themePrimaryColorLight: {
+      type: String,
+      default: "#8a5438",
+    },
+    themeCreamColor: {
+      type: String,
+      default: "#F5E9DA",
+    },
+    themeCreamColorDark: {
+      type: String,
+      default: "#ede0cc",
+    },
   },
   { timestamps: true }
 );
