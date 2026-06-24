@@ -145,18 +145,18 @@ class Auth {
           ? "super_admin"
           : "customer";
 
-        // Generate Access Token (15 mins)
+        // Generate Access Token (7 days — localStorage-based auth, no cross-domain cookie refresh)
         const accessToken = jwt.sign(
           { _id: data._id, role: data.userRole, rbacRole: effectiveRole },
           JWT_SECRET,
-          { expiresIn: "15m" }
+          { expiresIn: "7d" }
         );
         const encode = jwt.verify(accessToken, JWT_SECRET);
 
-        // Generate Refresh Token (7 days)
+        // Generate Refresh Token (30 days)
         const newRefreshToken = crypto.randomBytes(40).toString("hex");
         const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 7);
+        expiresAt.setDate(expiresAt.getDate() + 30);
         await refreshTokenModel.create({
           token: newRefreshToken,
           userId: data._id,
@@ -182,17 +182,17 @@ class Auth {
         res.cookie("token", accessToken, {
           httpOnly: true,
           secure: secureCookie,
-          sameSite: "lax",
+          sameSite: "none",
           domain: cookieDomain,
-          maxAge: 15 * 60 * 1000,
+          maxAge: 7 * 24 * 60 * 60 * 1000,
         });
 
         res.cookie("refreshToken", newRefreshToken, {
           httpOnly: true,
           secure: secureCookie,
-          sameSite: "lax",
+          sameSite: "none",
           domain: cookieDomain,
-          maxAge: 7 * 24 * 60 * 60 * 1000,
+          maxAge: 30 * 24 * 60 * 60 * 1000,
         });
 
         return res.json({
