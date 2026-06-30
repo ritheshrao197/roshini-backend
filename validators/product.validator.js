@@ -39,6 +39,19 @@ const createProductSchema = z.object({
   seoTitle: z.string().optional(),
   seoDescription: z.string().optional(),
   tags: z.array(z.string()).optional(),
+  pVariants: z.preprocess(
+    (val) => (typeof val === "string" && val ? JSON.parse(val) : val),
+    z.array(
+      z.object({
+        _id: z.string().optional(),
+        weight: z.string({ required_error: "Variant weight/size is required" }).min(1),
+        price: z.preprocess((val) => Number(val), z.number().min(0)),
+        comparePrice: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().optional()),
+        quantity: z.preprocess((val) => (val !== undefined ? Number(val) : 0), z.number().min(0).default(0)),
+        sku: z.string().optional(),
+      })
+    )
+  ).optional(),
 });
 
 const updateProductSchema = createProductSchema.partial();

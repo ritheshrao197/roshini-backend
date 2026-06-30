@@ -11,7 +11,10 @@ const orderSchema = new mongoose.Schema(
     allProduct: [
       {
         id: { type: ObjectId, ref: "products" },
+        variantId: { type: String, default: null },
+        variantName: { type: String, default: null },
         quantitiy: Number,
+        price: Number,
       },
     ],
     cartSnapshot: {

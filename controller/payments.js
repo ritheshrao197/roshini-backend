@@ -32,17 +32,35 @@ class PaymentController {
         const product = await productModel.findById(item.id);
         if (!product) return res.status(404).json({ error: `Product not found` });
         
-        if (product.pQuantity < item.quantitiy) {
-          return res.status(400).json({
-            error: `Insufficient stock for product ${product.pName}. Available: ${product.pQuantity}`,
-          });
+        let price = product.pPrice;
+        let variantObj = null;
+        if (item.variantId && product.pVariants && product.pVariants.length > 0) {
+          variantObj = product.pVariants.find(v => v._id.toString() === item.variantId || v.weight === item.variantId);
         }
-        subtotal += product.pPrice * item.quantitiy;
-        cartItems.push({ product, quantity: item.quantitiy });
+
+        if (variantObj) {
+          if (variantObj.quantity < item.quantitiy) {
+            return res.status(400).json({
+              error: `Insufficient stock for product ${product.pName} (${variantObj.weight}). Available: ${variantObj.quantity}`,
+            });
+          }
+          price = variantObj.price;
+        } else {
+          if (product.pQuantity < item.quantitiy) {
+            return res.status(400).json({
+              error: `Insufficient stock for product ${product.pName}. Available: ${product.pQuantity}`,
+            });
+          }
+        }
+
+        subtotal += price * item.quantitiy;
+        cartItems.push({ product: { ...product.toObject(), pPrice: price }, quantity: item.quantitiy });
         cartSnapshotProducts.push({
           id: product._id,
           name: product.pName,
-          price: product.pPrice,
+          variantId: item.variantId || null,
+          variantName: item.variantName || null,
+          price: price,
           quantity: item.quantitiy
         });
       }

@@ -96,13 +96,30 @@ class Order {
         if (!product) {
           return res.status(404).json({ error: `Product not found` });
         }
-        if (product.pQuantity < item.quantitiy) {
-          return res.status(400).json({
-            error: `Insufficient stock for product ${product.pName}. Available: ${product.pQuantity}`,
-          });
+        
+        let price = product.pPrice;
+        let variantObj = null;
+        if (item.variantId && product.pVariants && product.pVariants.length > 0) {
+          variantObj = product.pVariants.find(v => v._id.toString() === item.variantId || v.weight === item.variantId);
         }
-        subtotal += product.pPrice * item.quantitiy;
-        cartItems.push({ product, quantity: item.quantitiy });
+
+        if (variantObj) {
+          if (variantObj.quantity < item.quantitiy) {
+            return res.status(400).json({
+              error: `Insufficient stock for product ${product.pName} (${variantObj.weight}). Available: ${variantObj.quantity}`,
+            });
+          }
+          price = variantObj.price;
+        } else {
+          if (product.pQuantity < item.quantitiy) {
+            return res.status(400).json({
+              error: `Insufficient stock for product ${product.pName}. Available: ${product.pQuantity}`,
+            });
+          }
+        }
+        
+        subtotal += price * item.quantitiy;
+        cartItems.push({ product: { ...product.toObject(), pPrice: price }, quantity: item.quantitiy });
       }
 
       // 4. Calculate Shipping and Coupon Discounts
@@ -142,12 +159,19 @@ class Order {
 
       // 5. Atomically decrement stock
       for (const item of allProduct) {
-        await productModel.findByIdAndUpdate(item.id, {
-          $inc: {
-            pQuantity: -item.quantitiy,
-            pSold: item.quantitiy,
-          },
-        });
+        const product = await productModel.findById(item.id);
+        if (item.variantId && product && product.pVariants && product.pVariants.length > 0) {
+          const variantIndex = product.pVariants.findIndex(v => v._id.toString() === item.variantId || v.weight === item.variantId);
+          if (variantIndex !== -1) {
+            product.pVariants[variantIndex].quantity -= item.quantitiy;
+            product.pSold += item.quantitiy;
+            await product.save();
+          }
+        } else if (product) {
+          product.pQuantity -= item.quantitiy;
+          product.pSold += item.quantitiy;
+          await product.save();
+        }
       }
 
       // 6. Create and save order

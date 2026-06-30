@@ -19,11 +19,22 @@ class InventoryService {
         throw new Error(`Product with ID ${item.id} not found during stock reduction.`);
       }
 
-      if (product.pQuantity < item.quantitiy) {
-        throw new Error(`Insufficient stock for product ${product.pName}. Available: ${product.pQuantity}`);
+      if (item.variantId && product.pVariants && product.pVariants.length > 0) {
+        const variant = product.pVariants.find(v => v._id.toString() === item.variantId || v.weight === item.variantId);
+        if (!variant) {
+          throw new Error(`Variant with ID ${item.variantId} not found for product ${product.pName} during stock reduction.`);
+        }
+        if (variant.quantity < item.quantitiy) {
+          throw new Error(`Insufficient stock for ${product.pName} (${variant.weight}). Available: ${variant.quantity}`);
+        }
+        variant.quantity -= item.quantitiy;
+      } else {
+        if (product.pQuantity < item.quantitiy) {
+          throw new Error(`Insufficient stock for product ${product.pName}. Available: ${product.pQuantity}`);
+        }
+        product.pQuantity -= item.quantitiy;
       }
 
-      product.pQuantity -= item.quantitiy;
       product.pSold += item.quantitiy;
 
       await product.save({ session });

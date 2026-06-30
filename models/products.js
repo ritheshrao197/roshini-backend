@@ -219,6 +219,15 @@ const productSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    pVariants: [
+      {
+        weight: { type: String },
+        price: { type: Number, required: true },
+        comparePrice: { type: Number },
+        quantity: { type: Number, required: true, default: 0 },
+        sku: { type: String },
+      }
+    ],
   },
   { timestamps: true }
 );

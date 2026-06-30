@@ -83,6 +83,7 @@ class Product {
       nutritionalInfo,
       benefits,
       featured,
+      pVariants,
     } = req.body;
     let images = req.files;
 
@@ -212,6 +213,7 @@ class Product {
           nutritionalInfo: safeJsonParse(nutritionalInfo, {}),
           benefits: safeJsonParse(benefits, []),
           featured: featured === "true" || featured === true,
+          pVariants: safeJsonParse(pVariants, []),
           auditLog: [
             {
               action: "CREATE",
@@ -281,6 +283,7 @@ class Product {
       nutritionalInfo,
       benefits,
       featured,
+      pVariants,
     } = req.body;
     let editImages = req.files;
 
@@ -382,6 +385,7 @@ class Product {
         nutritionalInfo: safeJsonParse(nutritionalInfo, {}),
         benefits: safeJsonParse(benefits, []),
         featured: featured === "true" || featured === true,
+        pVariants: safeJsonParse(pVariants, []),
       };
 
       let imagesMetadata = safeJsonParse(req.body.imagesMetadata, null);
