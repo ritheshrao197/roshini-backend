@@ -203,7 +203,7 @@ class Order {
         if (userObj.email) {
           EmailService.sendOrderConfirmation(userObj.email, save._id, total);
         }
-        EmailService.sendAdminNewOrderAlert("admin@roshinishomeproducts.com", save._id, total);
+        EmailService.sendAdminNewOrderAlert("admin@roshinis.com", save._id, total);
         
         return res.json({ success: "Order created successfully", orderId: save._id });
       }
@@ -332,7 +332,7 @@ class Order {
         fulfillmentStatus: order.status,
         trackingId: order.shipmentTrackingId || null,
         storeName: "Roshini's Home Products",
-        storeEmail: "support@roshinishomeproducts.com",
+        storeEmail: "support@roshinis.com",
       };
       return res.json({ invoice: invoiceData });
     } catch (err) {

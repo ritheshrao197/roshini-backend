@@ -119,8 +119,8 @@ const clientUrl = process.env.CLIENT_URL ? process.env.CLIENT_URL.replace(/\/$/,
 
 const allowedOrigins = process.env.NODE_ENV === "production"
   ? [
-      "https://roshinishomeproducts.com",
-      "https://admin.roshinishomeproducts.com",
+      "https://roshinis.com",
+      "https://admin.roshinis.com",
       clientUrl
     ].filter(Boolean)
   : [

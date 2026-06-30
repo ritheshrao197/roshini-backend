@@ -2,7 +2,7 @@ const { Resend } = require("resend");
 const emailLogModel = require("../models/emailLogs");
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-const fromEmail = process.env.RESEND_FROM_EMAIL || "updates@roshinishomeproducts.com";
+const fromEmail = process.env.RESEND_FROM_EMAIL || "updates@roshinis.com";
 
 class EmailService {
   /**
