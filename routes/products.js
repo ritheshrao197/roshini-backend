@@ -10,8 +10,8 @@ const { uploadMiddleware } = require("../config/cloudinary");
 
 // Products: 300s TTL (5 minutes)
 router.get("/all-product", cacheMiddleware("products", 300), productController.getAllProduct);
-router.get("/slug/:slug", productController.getProductBySlug);
-router.get("/:id/related", productController.getRelatedProducts);
+router.get("/slug/:slug", cacheMiddleware("product-slug", 300), productController.getProductBySlug);
+router.get("/:id/related", cacheMiddleware("product-related", 300), productController.getRelatedProducts);
 router.post("/product-by-category", productController.getProductByCategory);
 router.post("/product-by-price", productController.getProductByPrice);
 router.post("/wish-product", productController.getWishProduct);

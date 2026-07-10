@@ -753,7 +753,9 @@ class Product {
 
   async getProductBySlug(req, res) {
     try {
-      const product = await productModel.findOne({ slug: req.params.slug, pStatus: "Active" }).populate("pCategory", "_id cName");
+      const product = await productModel.findOne({ slug: req.params.slug, pStatus: "Active" })
+        .select("pName pDescription pPrice pQuantity pCategory images pVariants slug nutritionalInfo benefits usageInstructions storageInstructions suitableFor brandName comparePrice seoTitle seoDescription")
+        .populate("pCategory", "_id cName");
       if (!product) return res.status(404).json({ error: "Product not found" });
       return res.json({ product });
     } catch (err) {
@@ -769,7 +771,9 @@ class Product {
         pCategory: product.pCategory,
         _id: { $ne: product._id },
         pStatus: "Active"
-      }).limit(4);
+      })
+      .select("pName pPrice images pVariants slug comparePrice")
+      .limit(4);
       return res.json({ related });
     } catch (err) {
       return res.status(500).json({ error: err.message });
