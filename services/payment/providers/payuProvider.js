@@ -12,6 +12,16 @@ class PayUProvider extends PaymentProvider {
   }
 
   async initiatePayment(order) {
+    if (!this.key) {
+      throw new Error("PayU Merchant Key (PAYU_KEY) is not configured in the server environment variables.");
+    }
+    if (!this.salt) {
+      throw new Error("PayU Salt (PAYU_SALT) is not configured in the server environment variables.");
+    }
+    if (!process.env.BACKEND_URL) {
+      throw new Error("BACKEND_URL is not configured in the server environment variables.");
+    }
+
     const txnid = order.payment.transactionId;
     const amount = order.amount;
     const productinfo = "Roshinis Home Products Purchase";
