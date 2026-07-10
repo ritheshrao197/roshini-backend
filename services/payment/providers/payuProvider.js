@@ -7,8 +7,27 @@ class PayUProvider extends PaymentProvider {
     super();
     this.key = process.env.PAYU_KEY || "";
     this.salt = process.env.PAYU_SALT || "";
-    this.baseUrl = process.env.PAYU_BASE_URL || "https://test.payu.in";
-    this.action = `${this.baseUrl}/_payment`;
+    
+    const isProd = process.env.NODE_ENV === "production";
+    const defaultBaseUrl = isProd 
+      ? "https://secure.payu.in" 
+      : "https://test.payu.in";
+      
+    this.baseUrl = process.env.PAYU_BASE_URL || defaultBaseUrl;
+    
+    // Set checkout action URL
+    if (this.baseUrl.endsWith("/_payment") || this.baseUrl.endsWith("/v2/payments")) {
+      this.action = this.baseUrl;
+    } else {
+      this.action = `${this.baseUrl}/_payment`;
+    }
+
+    // Set verification postservice URL
+    if (isProd || this.baseUrl.includes("secure.payu.in") || this.baseUrl.includes("api.payu.in")) {
+      this.verifyUrl = "https://info.payu.in/merchant/postservice?form=2";
+    } else {
+      this.verifyUrl = "https://test.payu.in/merchant/postservice?form=2";
+    }
   }
 
   async initiatePayment(order) {
@@ -107,7 +126,7 @@ class PayUProvider extends PaymentProvider {
     params.append('hash', hash);
 
     try {
-      const response = await axios.post(`${this.baseUrl}/merchant/postservice?form=2`, params.toString(), {
+      const response = await axios.post(this.verifyUrl, params.toString(), {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
       });
       
