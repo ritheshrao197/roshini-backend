@@ -751,6 +751,31 @@ class Product {
     }
   }
 
+  async getProductBySlug(req, res) {
+    try {
+      const product = await productModel.findOne({ slug: req.params.slug, pStatus: "Active" }).populate("pCategory", "_id cName");
+      if (!product) return res.status(404).json({ error: "Product not found" });
+      return res.json({ product });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  async getRelatedProducts(req, res) {
+    try {
+      const product = await productModel.findById(req.params.id);
+      if (!product) return res.status(404).json({ error: "Product not found" });
+      const related = await productModel.find({
+        pCategory: product.pCategory,
+        _id: { $ne: product._id },
+        pStatus: "Active"
+      }).limit(4);
+      return res.json({ related });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   async deleteReview(req, res) {
     let { rId, pId } = req.body;
     if (!rId) {

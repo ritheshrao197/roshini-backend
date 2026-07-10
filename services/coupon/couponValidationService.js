@@ -12,7 +12,7 @@ class CouponValidationService {
     if (redisClient) {
       try {
         const cached = await redisClient.get(redisKey);
-        if (cached) return cached;
+        if (cached) return JSON.parse(cached);
       } catch (err) {
         console.warn("Redis get error:", err);
       }

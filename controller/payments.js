@@ -188,7 +188,7 @@ class PaymentController {
   async phonepeWebhook(req, res) {
     try {
       const provider = paymentService.getProvider("PHONEPE");
-      const result = await provider.verifyCallback(req.body);
+      const result = await provider.verifyCallback(req.body, req.headers);
 
       if (result.success) {
         await paymentProcessor.processSuccess(result);

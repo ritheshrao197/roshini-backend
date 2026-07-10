@@ -75,10 +75,25 @@ class PhonePeProvider extends PaymentProvider {
     }
   }
 
-  async verifyCallback(payload) {
-    // PhonePe sends the base64 payload inside 'response' field usually
+  async verifyCallback(payload, headers = {}) {
     const base64Response = payload.response;
     if (!base64Response) throw new Error("No response payload found");
+
+    // Validate X-VERIFY Header
+    const xVerifyHeader = headers["x-verify"];
+    if (!xVerifyHeader) {
+      throw new Error("Missing X-VERIFY signature header in callback");
+    }
+
+    // Recalculate hash: SHA256(Base64_Response_Body + Salt_Key) + "###" + Salt_Index
+    const calculatedHash = crypto.createHash("sha256")
+      .update(base64Response + this.saltKey)
+      .digest("hex");
+    const expectedHeader = `${calculatedHash}###${this.saltIndex}`;
+
+    if (xVerifyHeader !== expectedHeader) {
+      throw new Error("PhonePe Webhook signature verification failed. Possible fraud attempt.");
+    }
 
     const decoded = Buffer.from(base64Response, "base64").toString("utf-8");
     const parsed = JSON.parse(decoded);
