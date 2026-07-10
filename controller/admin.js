@@ -108,7 +108,7 @@ class AdminController {
   // 6. COUPON ENGINE: APPLY COUPON (Validation Endpoint for Cart)
   async applyCoupon(req, res) {
     const { code, cartItems } = req.body;
-    const user = req.user; // Assuming loginCheck sets req.user
+    const user = req.userDetails || req.user; // Resolve user object from either details (loginCheck) or user (authorize)
 
     if (!code || !cartItems || !Array.isArray(cartItems)) {
       return res.status(400).json({ error: "Code and cartItems array are required" });
