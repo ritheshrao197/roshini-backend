@@ -178,11 +178,12 @@ class Auth {
         // Cookie Configuration
         const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
         const secureCookie = process.env.NODE_ENV === "production";
+        const sameSiteAttr = secureCookie ? "none" : "lax";
 
         res.cookie("token", accessToken, {
           httpOnly: true,
           secure: secureCookie,
-          sameSite: "none",
+          sameSite: sameSiteAttr,
           domain: cookieDomain,
           maxAge: 7 * 24 * 60 * 60 * 1000,
         });
@@ -190,7 +191,7 @@ class Auth {
         res.cookie("refreshToken", newRefreshToken, {
           httpOnly: true,
           secure: secureCookie,
-          sameSite: "none",
+          sameSite: sameSiteAttr,
           domain: cookieDomain,
           maxAge: 30 * 24 * 60 * 60 * 1000,
         });

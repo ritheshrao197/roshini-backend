@@ -225,31 +225,39 @@ app.use(errorHandler);
 
 // Run Server
 const PORT = process.env.PORT || 8000;
-const server = app.listen(PORT, () => {
-  logger.info(`Server is running on port ${PORT}`);
-});
+let server;
+if (process.env.NODE_ENV !== "test") {
+  server = app.listen(PORT, () => {
+    logger.info(`Server is running on port ${PORT}`);
+  });
+}
 
 // Graceful Shutdown
 const gracefulShutdown = async (signal) => {
   logger.info(`[Shutdown] Received ${signal}. Starting graceful shutdown...`);
-  server.close(async () => {
-    logger.info("[Shutdown] HTTP server closed.");
+  if (server) {
+    server.close(async () => {
+      logger.info("[Shutdown] HTTP server closed.");
+      try {
+        await mongoose.disconnect();
+        logger.info("[Shutdown] MongoDB connection closed.");
+        process.exit(0);
+      } catch (err) {
+        logger.error({ err }, "[Shutdown] Error during MongoDB disconnect.");
+        process.exit(1);
+      }
+    });
+  } else {
     try {
       await mongoose.disconnect();
-      logger.info("[Shutdown] MongoDB connection closed.");
       process.exit(0);
     } catch (err) {
-      logger.error({ err }, "[Shutdown] Error during MongoDB disconnect.");
       process.exit(1);
     }
-  });
-  
-  // Force exit after 10 seconds if graceful close fails
-  setTimeout(() => {
-    logger.error("[Shutdown] Force exit. Timeout reached.");
-    process.exit(1);
-  }, 10000);
+  }
 };
 
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
+module.exports = app;

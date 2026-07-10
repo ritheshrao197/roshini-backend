@@ -5,7 +5,8 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "start:dev": "nodemon app.js"
+    "start:dev": "nodemon app.js",
+    "test": "npx jest --runInBand --detectOpenHandles --forceExit"
   },
   "author": "Roshini's Home Products",
   "license": "ISC",
@@ -44,5 +45,9 @@
     "resend": "^6.12.4",
     "ulid": "^3.0.2",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "supertest": "^7.2.2"
   }
 }
