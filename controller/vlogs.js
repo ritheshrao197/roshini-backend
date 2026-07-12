@@ -560,6 +560,36 @@ class Vlog {
     }
   }
 
+  async patchVlogStatus(req, res) {
+    let { id } = req.params;
+    let { status } = req.body;
+
+    if (!["Draft", "Published", "Archived"].includes(status)) {
+      return res.status(400).json({ error: "Invalid status value" });
+    }
+
+    try {
+      const existingVlog = await vlogModel.findById(id);
+      if (!existingVlog) {
+        return res.status(404).json({ error: "Vlog not found" });
+      }
+
+      const updateData = {
+        status,
+        isPublished: status === "Published",
+        publishDate: status === "Published"
+          ? (existingVlog.publishDate || new Date())
+          : null
+      };
+
+      const updatedVlog = await vlogModel.findByIdAndUpdate(id, updateData, { new: true });
+      return res.json({ success: "Vlog status updated successfully", vlog: updatedVlog });
+    } catch (err) {
+      console.log(err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
   async submitPublicVlog(req, res) {
     let { title, content, excerpt, category, tags, seoTitle, seoDescription, imageUrl } = req.body;
 

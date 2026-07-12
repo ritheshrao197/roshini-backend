@@ -30,6 +30,7 @@ router.post("/admin/vlogs", loginCheck, uploadFields, imageValidator, vlogContro
 router.put("/admin/vlogs/:id", loginCheck, uploadFields, imageValidator, vlogController.putUpdateVlog);
 router.delete("/admin/vlogs/:id", loginCheck, vlogController.deleteVlog);
 router.patch("/admin/vlogs/:id/publish", loginCheck, vlogController.patchPublishStatus);
+router.patch("/admin/vlogs/:id/status", loginCheck, vlogController.patchVlogStatus);
 
 // Admin endpoints for Vlog Categories
 router.post("/admin/vlog-categories", loginCheck, vlogCategoryController.postAddCategory);
