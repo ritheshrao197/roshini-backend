@@ -40,6 +40,15 @@ const vlogSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    status: {
+      type: String,
+      enum: ["Draft", "Published", "Archived"],
+      default: "Draft"
+    },
+    likesCount: {
+      type: Number,
+      default: 0
+    },
     publishDate: {
       type: Date,
     },
@@ -53,6 +62,17 @@ const vlogSchema = new mongoose.Schema(
     seoDescription: {
       type: String,
     },
+    seoKeywords: [
+      {
+        type: String
+      }
+    ],
+    canonicalUrl: {
+      type: String
+    },
+    ogImage: {
+      type: String
+    },
     featured: {
       type: Boolean,
       default: false,
@@ -65,12 +85,30 @@ const vlogSchema = new mongoose.Schema(
       type: ObjectId,
       ref: "users",
     },
+    relatedProducts: [
+      {
+        type: ObjectId,
+        ref: "products"
+      }
+    ],
+    gallery: [
+      {
+        publicId: { type: String, default: null },
+        secureUrl: { type: String, default: null },
+        alt: { type: String, default: "" }
+      }
+    ],
+    scheduledPublishDate: {
+      type: Date,
+      default: null
+    }
   },
   { timestamps: true }
 );
 
 vlogSchema.index({ slug: 1 });
 vlogSchema.index({ isPublished: 1, isDeleted: 1 });
+vlogSchema.index({ status: 1 });
 vlogSchema.index({ title: "text", content: "text" });
 
 vlogSchema.set("toJSON", { virtuals: true });
@@ -78,6 +116,25 @@ vlogSchema.set("toObject", { virtuals: true });
 
 vlogSchema.virtual("thumbnail").get(function () {
   return this.image ? this.image.secureUrl : "";
+});
+
+vlogSchema.virtual("readingTime").get(function () {
+  if (!this.content) return 1;
+  const cleanText = this.content.replace(/<[^>]*>/g, " ");
+  const wordCount = cleanText.trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.ceil(wordCount / 200));
+});
+
+vlogSchema.pre("save", function (next) {
+  if (this.status === "Published") {
+    this.isPublished = true;
+    if (!this.publishDate) {
+      this.publishDate = new Date();
+    }
+  } else {
+    this.isPublished = false;
+  }
+  next();
 });
 
 const vlogModel = mongoose.model("vlogs", vlogSchema);

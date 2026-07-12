@@ -64,6 +64,7 @@ require("dotenv").config();
 // Import cron jobs
 require("./cron/orderExpiration");
 require("./cron/paymentReconciliation");
+require("./cron/scheduledPublish");
 
 // Database Connection
 mongoose
