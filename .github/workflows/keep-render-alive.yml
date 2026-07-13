@@ -1,0 +1,40 @@
+name: Keep Render Backend Alive
+
+on:
+  schedule:
+    # Runs every 10 minutes
+    - cron: "*/10 * * * *"
+
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Wait Random Time (0-10 mins)
+        run: |
+          RANDOM_DELAY=$(( RANDOM % 601 ))
+          echo "Sleeping for $RANDOM_DELAY seconds..."
+          sleep $RANDOM_DELAY
+
+      - name: Ping Render
+        env:
+          URL: ${{ secrets.RENDER_BACKEND_URL }}
+        run: |
+          echo "Pinging $URL/health"
+
+          STATUS=$(curl -s \
+            -o /dev/null \
+            -w "%{http_code}" \
+            --max-time 60 \
+            "$URL/health")
+
+          echo "HTTP Status: $STATUS"
+
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 500 ]; then
+            echo "Backend is alive."
+          else
+            echo "Ping failed."
+            exit 1
+          fi
