@@ -132,6 +132,43 @@ describe("Public Blog Submission API Suite", () => {
     let testBlogId = null;
     let testSlug = null;
     let testCatId = null;
+    let deletedCategoryId = null;
+    let deletedBlogId = null;
+    let deletedBlogSlug = null;
+
+    beforeAll(async () => {
+      const deletedCategory = await vlogCategoryModel.create({
+        cName: "Test Category Deleted",
+        cDescription: "Deleted blog category",
+        slug: "test-category-deleted",
+        cStatus: "Active"
+      });
+
+      const deletedBlog = await vlogModel.create({
+        title: "Test Blog Deleted",
+        slug: "test-blog-deleted",
+        content: "<p>Deleted blog body</p>",
+        excerpt: "Deleted blog excerpt",
+        vCategory: deletedCategory._id,
+        status: "Published",
+        isPublished: true,
+        publishDate: new Date(),
+        isDeleted: true
+      });
+
+      deletedCategoryId = deletedCategory._id;
+      deletedBlogId = deletedBlog._id.toString();
+      deletedBlogSlug = deletedBlog.slug;
+    });
+
+    afterAll(async () => {
+      if (deletedBlogId) {
+        await vlogModel.deleteMany({ _id: deletedBlogId });
+      }
+      if (deletedCategoryId) {
+        await vlogCategoryModel.deleteMany({ _id: deletedCategoryId });
+      }
+    });
 
     it("should successfully import a single Markdown blog as a Draft", async () => {
       const res = await request(app)
@@ -217,6 +254,28 @@ describe("Public Blog Submission API Suite", () => {
 
       expect(res.body).toHaveProperty("vlogs");
       expect(Array.isArray(res.body.vlogs)).toBe(true);
+    });
+
+    it("should hide a soft-deleted blog from public detail routes", async () => {
+      await request(app)
+        .get(`/api/vlogs/${deletedBlogSlug}`)
+        .expect(404);
+    });
+
+    it("should block likes for a soft-deleted blog", async () => {
+      const res = await request(app)
+        .post(`/api/vlogs/${deletedBlogId}/like`)
+        .expect(404);
+
+      expect(res.body).toHaveProperty("error", "Vlog not found");
+    });
+
+    it("should block related blog lookup for a soft-deleted blog", async () => {
+      const res = await request(app)
+        .get(`/api/vlogs/${deletedBlogId}/related`)
+        .expect(404);
+
+      expect(res.body).toHaveProperty("error", "Vlog not found");
     });
   });
 });

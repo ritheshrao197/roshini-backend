@@ -400,7 +400,7 @@ class Vlog {
     let uploaded = null;
     let galleryUploaded = [];
     try {
-      const existingVlog = await vlogModel.findById(id);
+      const existingVlog = await vlogModel.findOne({ _id: id, isDeleted: false });
       if (!existingVlog) {
         if (thumbnailFile) safeUnlink(thumbnailFile.path);
         if (galleryFiles && galleryFiles.length > 0) galleryFiles.forEach(f => safeUnlink(f.path));
@@ -526,7 +526,11 @@ class Vlog {
   async deleteVlog(req, res) {
     let { id } = req.params;
     try {
-      let deletedVlog = await vlogModel.findByIdAndUpdate(id, { isDeleted: true });
+      let deletedVlog = await vlogModel.findOneAndUpdate(
+        { _id: id, isDeleted: false },
+        { isDeleted: true, isPublished: false, status: "Archived", publishDate: null },
+        { new: true }
+      );
       if (deletedVlog) {
         return res.json({ success: "Vlog deleted successfully" });
       }
@@ -545,7 +549,10 @@ class Vlog {
       let isPublished = action === "publish";
       let publishDate = isPublished ? Date.now() : null;
 
-      let updatedVlog = await vlogModel.findByIdAndUpdate(id, {
+      let updatedVlog = await vlogModel.findOneAndUpdate({
+        _id: id,
+        isDeleted: false
+      }, {
         isPublished,
         publishDate
       }, { new: true });
@@ -569,7 +576,7 @@ class Vlog {
     }
 
     try {
-      const existingVlog = await vlogModel.findById(id);
+      const existingVlog = await vlogModel.findOne({ _id: id, isDeleted: false });
       if (!existingVlog) {
         return res.status(404).json({ error: "Vlog not found" });
       }
@@ -582,7 +589,11 @@ class Vlog {
           : null
       };
 
-      const updatedVlog = await vlogModel.findByIdAndUpdate(id, updateData, { new: true });
+      const updatedVlog = await vlogModel.findOneAndUpdate(
+        { _id: id, isDeleted: false },
+        updateData,
+        { new: true }
+      );
       return res.json({ success: "Vlog status updated successfully", vlog: updatedVlog });
     } catch (err) {
       console.log(err);
@@ -1073,8 +1084,8 @@ class Vlog {
   async likeVlog(req, res) {
     let { id } = req.params;
     try {
-      let updated = await vlogModel.findByIdAndUpdate(
-        id,
+      let updated = await vlogModel.findOneAndUpdate(
+        { _id: id, isPublished: true, isDeleted: false },
         { $inc: { likesCount: 1 } },
         { new: true }
       );
@@ -1091,7 +1102,11 @@ class Vlog {
   async getRelatedVlogs(req, res) {
     let { id } = req.params;
     try {
-      const vlog = await vlogModel.findById(id).populate("vTags");
+      const vlog = await vlogModel.findOne({
+        _id: id,
+        isPublished: true,
+        isDeleted: false
+      }).populate("vTags");
       if (!vlog) {
         return res.status(404).json({ error: "Vlog not found" });
       }
