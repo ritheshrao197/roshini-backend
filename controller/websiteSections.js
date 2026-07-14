@@ -21,7 +21,7 @@ class WebsiteSectionsController {
       
       // Seed default sections if empty
       if (sections.length === 0) {
-        await websiteSectionModel.insertMany(DEFAULT_SECTIONS);
+        await websiteSectionModel.insertMany(DEFAULT_SECTIONS, { ordered: false }).catch(() => null);
         sections = await websiteSectionModel.find({}).sort({ displayOrder: 1 }).lean().exec();
       }
 

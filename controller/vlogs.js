@@ -14,6 +14,33 @@ const safeUnlink = (filePath) => {
   }
 };
 
+const VLOG_LIST_SELECT = [
+  "title",
+  "slug",
+  "excerpt",
+  "image",
+  "vCategory",
+  "vTags",
+  "featured",
+  "publishDate",
+  "viewCount",
+  "createdAt",
+  "content",
+].join(" ");
+
+const toVlogListItem = (vlog) => {
+  const plainText = typeof vlog.content === "string"
+    ? vlog.content.replace(/<[^>]*>/g, " ")
+    : "";
+  const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
+
+  return {
+    ...vlog,
+    thumbnail: vlog.image?.secureUrl || "",
+    readingTime: Math.max(1, Math.ceil(wordCount / 200)),
+  };
+};
+
 class Vlog {
   // PUBLIC ENDPOINTS
 
@@ -62,17 +89,23 @@ class Vlog {
       }
 
       let vlogs = await vlogModel.find(queryCondition)
+        .select(VLOG_LIST_SELECT)
         .populate("vCategory", "cName slug")
         .populate("vTags", "name slug")
-        .populate("relatedProducts", "pName pPrice pImages slug")
         .sort(sortCondition)
         .skip(skip)
         .limit(limit)
+        .lean()
         .exec();
 
       let totalCount = await vlogModel.countDocuments(queryCondition);
 
-      return res.json({ vlogs, totalCount, totalPages: Math.ceil(totalCount / limit), currentPage: page });
+      return res.json({
+        vlogs: vlogs.map(toVlogListItem),
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        currentPage: page,
+      });
     } catch (err) {
       console.log(err);
       return res.status(500).json({ error: "Internal server error" });
@@ -106,11 +139,13 @@ class Vlog {
   async getFeaturedVlogs(req, res) {
     try {
       let vlogs = await vlogModel.find({ featured: true, isPublished: true, isDeleted: false })
+        .select(VLOG_LIST_SELECT)
         .populate("vCategory", "cName slug")
         .sort({ publishDate: -1 })
         .limit(5)
+        .lean()
         .exec();
-      return res.json({ vlogs });
+      return res.json({ vlogs: vlogs.map(toVlogListItem) });
     } catch (err) {
       console.log(err);
       return res.status(500).json({ error: "Internal server error" });
@@ -120,11 +155,13 @@ class Vlog {
   async getLatestVlogs(req, res) {
     try {
       let vlogs = await vlogModel.find({ isPublished: true, isDeleted: false })
+        .select(VLOG_LIST_SELECT)
         .populate("vCategory", "cName slug")
         .sort({ publishDate: -1 })
         .limit(5)
+        .lean()
         .exec();
-      return res.json({ vlogs });
+      return res.json({ vlogs: vlogs.map(toVlogListItem) });
     } catch (err) {
       console.log(err);
       return res.status(500).json({ error: "Internal server error" });
@@ -134,11 +171,13 @@ class Vlog {
   async getPopularVlogs(req, res) {
     try {
       let vlogs = await vlogModel.find({ isPublished: true, isDeleted: false })
+        .select(VLOG_LIST_SELECT)
         .populate("vCategory", "cName slug")
         .sort({ viewCount: -1 })
         .limit(5)
+        .lean()
         .exec();
-      return res.json({ vlogs });
+      return res.json({ vlogs: vlogs.map(toVlogListItem) });
     } catch (err) {
       console.log(err);
       return res.status(500).json({ error: "Internal server error" });
@@ -157,16 +196,23 @@ class Vlog {
       if (!category) return res.status(404).json({ error: "Category not found" });
 
       let vlogs = await vlogModel.find({ vCategory: category._id, isPublished: true, isDeleted: false })
+        .select(VLOG_LIST_SELECT)
         .populate("vCategory", "cName slug")
         .populate("vTags", "name slug")
         .sort({ publishDate: -1 })
         .skip(skip)
         .limit(limit)
+        .lean()
         .exec();
 
       let totalCount = await vlogModel.countDocuments({ vCategory: category._id, isPublished: true, isDeleted: false });
 
-      return res.json({ vlogs, totalCount, totalPages: Math.ceil(totalCount / limit), currentPage: page });
+      return res.json({
+        vlogs: vlogs.map(toVlogListItem),
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        currentPage: page,
+      });
     } catch (err) {
       console.log(err);
       return res.status(500).json({ error: "Internal server error" });
@@ -189,10 +235,12 @@ class Vlog {
         isPublished: true,
         isDeleted: false
       })
+        .select(VLOG_LIST_SELECT)
         .populate("vCategory", "cName slug")
         .sort({ score: { $meta: "textScore" } })
         .skip(skip)
         .limit(limit)
+        .lean()
         .exec();
 
       let totalCount = await vlogModel.countDocuments({
@@ -201,7 +249,12 @@ class Vlog {
         isDeleted: false
       });
 
-      return res.json({ vlogs, totalCount, totalPages: Math.ceil(totalCount / limit), currentPage: page });
+      return res.json({
+        vlogs: vlogs.map(toVlogListItem),
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        currentPage: page,
+      });
     } catch (err) {
       console.log(err);
       return res.status(500).json({ error: "Internal server error" });

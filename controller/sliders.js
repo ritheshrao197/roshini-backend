@@ -87,14 +87,39 @@ class SliderController {
       activeSliders.sort((a, b) => a.displayOrder - b.displayOrder);
 
       // Populate referenceId manually for products and achievements
+      const productIds = activeSliders
+        .filter((slide) => slide.type === "product" && slide.referenceId)
+        .map((slide) => slide.referenceId);
+      const achievementIds = activeSliders
+        .filter((slide) => slide.type === "achievement" && slide.referenceId)
+        .map((slide) => slide.referenceId);
+
+      const [products, achievements] = await Promise.all([
+        productIds.length
+          ? productModel.find({ _id: { $in: productIds } }).select("pName pPrice image images slug").lean()
+          : [],
+        achievementIds.length
+          ? achievementModel.find({ _id: { $in: achievementIds } }).lean()
+          : [],
+      ]);
+
+      const productMap = new Map(products.map((product) => [
+        String(product._id),
+        {
+          ...product,
+          pImages: Array.isArray(product.images)
+            ? product.images.map((img) => img.secureUrl).filter(Boolean)
+            : [],
+        },
+      ]));
+      const achievementMap = new Map(achievements.map((achievement) => [String(achievement._id), achievement]));
+
       for (let i = 0; i < activeSliders.length; i++) {
         let slide = activeSliders[i];
         if (slide.type === "product" && slide.referenceId) {
-          const prod = await productModel.findById(slide.referenceId).select("pName pPrice pImages slug").lean();
-          if (prod) slide.productData = prod;
+          slide.productData = productMap.get(String(slide.referenceId)) || null;
         } else if (slide.type === "achievement" && slide.referenceId) {
-          const ach = await achievementModel.findById(slide.referenceId).lean();
-          if (ach) slide.achievementData = ach;
+          slide.achievementData = achievementMap.get(String(slide.referenceId)) || null;
         }
       }
 

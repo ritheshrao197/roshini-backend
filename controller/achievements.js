@@ -6,7 +6,9 @@ class AchievementController {
     try {
       let achievements = await achievementModel
         .find({ isActive: true })
+        .select("title subtitle type icon value description displayOrder isActive")
         .sort({ displayOrder: 1, createdAt: -1 })
+        .lean()
         .exec();
       return res.json({ achievements });
     } catch (err) {

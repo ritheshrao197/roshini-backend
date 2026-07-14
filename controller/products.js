@@ -3,6 +3,24 @@ const fs = require("fs");
 const path = require("path");
 const { uploadImage, deleteImage } = require("../services/cloudinaryUpload");
 
+const PRODUCT_LIST_SELECT = [
+  "pName",
+  "pDescription",
+  "pPrice",
+  "pSold",
+  "pQuantity",
+  "pCategory",
+  "image",
+  "images",
+  "pOffer",
+  "pStatus",
+  "comparePrice",
+  "productWeight",
+  "slug",
+  "featured",
+  "pVariants",
+].join(" ");
+
 const safeUnlink = (filePath) => {
   if (filePath && fs.existsSync(filePath)) {
     try {
@@ -33,9 +51,19 @@ class Product {
   async getAllProduct(req, res) {
     try {
       let Products = await productModel
-        .find({ isDeleted: { $ne: true } })
+        .find({ isDeleted: { $ne: true }, pStatus: "Active" })
+        .select(PRODUCT_LIST_SELECT)
         .populate("pCategory", "_id cName")
-        .sort({ _id: -1 });
+        .sort({ featured: -1, _id: -1 })
+        .lean();
+
+      Products = Products.map((product) => ({
+        ...product,
+        pImages: Array.isArray(product.images)
+          ? product.images.map((img) => img.secureUrl).filter(Boolean)
+          : [],
+      }));
+
       if (Products) {
         return res.json({ Products });
       }
