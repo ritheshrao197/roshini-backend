@@ -31,7 +31,7 @@ const orderSchema = new mongoose.Schema(
     },
     coupon: {
       code: String,
-      type: { type: String, enum: ["percentage", "fixed", "shipping", "tiered"] },
+      type: { type: String, enum: ["percentage", "fixed", "shipping", "tiered", "combination", "combination_fixed"] },
       value: Number,
       discountAmount: Number,
     },

@@ -7,8 +7,8 @@ const createCouponSchema = z.object({
     .toUpperCase()
     .trim(),
   description: z.string().optional(),
-  type: z.enum(["percentage", "fixed", "shipping", "tiered"], {
-    required_error: "Type must be percentage, fixed, shipping, or tiered",
+  type: z.enum(["percentage", "fixed", "shipping", "tiered", "combination", "combination_fixed"], {
+    required_error: "Type must be percentage, fixed, shipping, tiered, combination, or combination_fixed",
   }),
   value: z.preprocess(
     (val) => (val !== undefined && val !== "" ? Number(val) : undefined),

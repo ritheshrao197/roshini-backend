@@ -70,7 +70,19 @@ class CouponCalculationService {
         // The discount amount is technically the shipping charge we waived
         discountAmount = shippingCharge;
         break;
+      case "combination":
+        // Waive shipping charge (Free shipping)
+        finalShippingCharge = 0;
+        // Percentage discount
+        discountAmount = (eligibleSubtotal * coupon.value) / 100;
+        break;
 
+      case "combination_fixed":
+        // Waive shipping charge (Free shipping)
+        finalShippingCharge = 0;
+        // Fixed amount discount
+        discountAmount = coupon.value;
+        break;
       case "tiered":
         // For tiered, calculate total eligible quantity
         let eligibleQuantity = 0;
