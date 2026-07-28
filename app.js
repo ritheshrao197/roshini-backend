@@ -211,6 +211,15 @@ app.get("/health/details", (req, res) => {
   });
 });
 
+app.get("/api/build-info", (req, res) => {
+  try {
+    const buildInfo = require("./build-metadata.json");
+    res.json(buildInfo);
+  } catch (err) {
+    res.status(404).json({ error: "Build metadata not found" });
+  }
+});
+
 // Global Rate Limiter for all API routes
 const rateLimit = require("express-rate-limit");
 const globalLimiter = rateLimit({

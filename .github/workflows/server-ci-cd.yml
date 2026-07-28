@@ -5,19 +5,33 @@ on:
     branches:
       - main
       - develop
+      - 'release/*'
+      - 'hotfix/*'
+    paths-ignore:
+      - 'build-metadata.json'
   pull_request:
     branches:
       - main
       - develop
+      - 'release/*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate-and-test:
     name: Lint, Audit, & Test Server
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -39,19 +53,83 @@ jobs:
           DATABASE: mongodb://localhost:27017/test_db
           JWT_SECRET: test_secret_token_jwt_goes_here_long_enough
 
-  deploy:
-    name: Deploy Server
-    needs: validate-and-test
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Deploy to Staging (Render)
-        if: github.ref == 'refs/heads/develop'
+      - name: Calculate Version & Generate Build Metadata
+        id: metadata
         run: |
-          curl -fX POST "${{ secrets.RENDER_SERVER_STAGING_DEPLOY_HOOK }}"
+          BRANCH_NAME="${{ github.ref_name }}"
+          BUILD_NUMBER="${{ github.run_number }}"
+          BUILT_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          COMMIT_SHA="${{ github.sha }}"
+          
+          if [[ "$BRANCH_NAME" == "main" ]]; then
+            BASE_VERSION=$(node -p "require('./package.json').version")
+            VERSION="$BASE_VERSION"
+            ENV="production"
+          elif [[ "$BRANCH_NAME" =~ ^release/(.*)$ ]]; then
+            BASE_VERSION="${BASH_REMATCH[1]}"
+            RC_COUNT=$(git tag -l "v$BASE_VERSION-rc.*" | wc -l)
+            RC_NUM=$((RC_COUNT + 1))
+            VERSION="$BASE_VERSION-rc.$RC_NUM"
+            ENV="staging"
+          elif [[ "$BRANCH_NAME" == "develop" ]]; then
+            BASE_VERSION=$(node -p "require('./package.json').version")
+            VERSION="$BASE_VERSION-dev.$BUILD_NUMBER"
+            ENV="development"
+          else
+            BASE_VERSION=$(node -p "require('./package.json').version")
+            VERSION="$BASE_VERSION-feature-$BUILD_NUMBER"
+            ENV="development"
+          fi
+          
+          echo "Calculated Version: $VERSION"
+          
+          cat <<EOF > build-metadata.json
+          {
+            "version": "$VERSION",
+            "environment": "$ENV",
+            "commit": "$COMMIT_SHA",
+            "build": $BUILD_NUMBER,
+            "branch": "$BRANCH_NAME",
+            "builtAt": "$BUILT_AT"
+          }
+          EOF
+          
+          # Commit the build metadata back to git if on a push event (not PR)
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            git config --global user.name "Github Actions"
+            git config --global user.email "actions@github.com"
+            git add build-metadata.json
+            git commit -m "chore: update build metadata [skip ci]" || true
+            git push origin HEAD:$BRANCH_NAME || true
+          fi
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "env=$ENV" >> $GITHUB_OUTPUT
 
-      - name: Deploy to Production (Render)
-        if: github.ref == 'refs/heads/main'
+      - name: Deploy to Render
+        if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'develop' || startsWith(github.ref_name, 'release/'))
         run: |
-          curl -fX POST "${{ secrets.RENDER_SERVER_PRODUCTION_DEPLOY_HOOK }}"
+          if [[ "${{ github.ref_name }}" == "main" ]]; then
+            echo "Deploying to Production..."
+            curl -fX POST "${{ secrets.RENDER_SERVER_PRODUCTION_DEPLOY_HOOK }}"
+          elif [[ "${{ github.ref_name }}" == "develop" ]]; then
+            echo "Deploying to Development..."
+            curl -fX POST "${{ secrets.RENDER_SERVER_STAGING_DEPLOY_HOOK }}"
+          elif [[ "${{ github.ref_name }}" =~ ^release/ ]]; then
+            echo "Deploying to Staging..."
+            curl -fX POST "${{ secrets.RENDER_SERVER_STAGING_DEPLOY_HOOK }}"
+          fi
+
+      - name: Create Release (Production Only)
+        if: github.event_name == 'push' && github.ref_name == 'main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.metadata.outputs.version }}
+          name: Release v${{ steps.metadata.outputs.version }}
+          body: |
+            Production release of version ${{ steps.metadata.outputs.version }}.
+            Commit: ${{ github.sha }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
