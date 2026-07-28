@@ -4,6 +4,7 @@ const ordersController = require("../controller/orders");
 
 router.get("/get-all-orders", ordersController.getAllOrders);
 router.post("/order-by-user", ordersController.getOrderByUser);
+router.post("/user", ordersController.getOrderByUser);
 router.get("/get-order/:id", ordersController.getOrderById);
 router.get("/status/:orderNumber", ordersController.getOrderStatus);
 const { checkoutLimiter } = require("../middleware/rateLimiter");
