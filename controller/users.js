@@ -46,8 +46,18 @@ class User {
       !phone
     ) {
       return res.json({ message: "All filled must be required" });
-    } else {
-      try {
+    }
+
+    const phoneRegex = /^\+?[0-9\s\-()]+$/;
+    if (!phoneRegex.test(phone)) {
+      return res.json({ message: "Contact number contains invalid characters" });
+    }
+    const phoneDigits = phone.replace(/\D/g, "");
+    if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+      return res.json({ message: "Contact number must be between 10 and 15 digits" });
+    }
+
+    try {
         let newUser = new userModel({
           allProduct,
           user,
@@ -61,9 +71,8 @@ class User {
           return res.json({ success: "User created successfully" });
         }
       } catch (err) {
-        return res.json({ error: error });
+        return res.json({ error: err.message });
       }
-    }
   }
 
   async postEditUser(req, res) {

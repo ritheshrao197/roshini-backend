@@ -75,6 +75,15 @@ class Order {
       return res.status(400).json({ error: "All fields are required" });
     }
 
+    const phoneRegex = /^\+?[0-9\s\-()]+$/;
+    if (!phoneRegex.test(phone)) {
+      return res.status(400).json({ error: "Contact number contains invalid characters" });
+    }
+    const phoneDigits = phone.replace(/\D/g, "");
+    if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+      return res.status(400).json({ error: "Contact number must be between 10 and 15 digits" });
+    }
+
     try {
       // 1. Prevent duplicate order creations (Idempotency check)
       const existingOrder = await orderModel.findOne({ transactionId });
