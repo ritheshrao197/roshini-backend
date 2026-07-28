@@ -22,7 +22,7 @@ jobs:
         env:
           URL: ${{ secrets.RENDER_BACKEND_URL }}
         run: |
-          echo "Pinging $URL/health"
+          echo "Pinging $URL/api/product/all-product"
 
           STATUS=$(curl -s \
             -o /dev/null \
