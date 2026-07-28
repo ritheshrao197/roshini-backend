@@ -6,7 +6,7 @@ const envSchema = z.zodSchema || z.object({
   }),
   JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters long"),
   PORT: z.preprocess((val) => Number(val) || 8000, z.number().int()),
-  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  NODE_ENV: z.enum(["development", "production", "test", "staging"]).default("development"),
   COOKIE_DOMAIN: z.string().optional(),
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
