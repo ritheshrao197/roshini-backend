@@ -1,0 +1,40 @@
+services:
+  # ── STAGING BACKEND ──
+  - type: web
+    name: roshinis-backend-staging
+    env: node
+    plan: starter
+    region: oregon
+    buildCommand: npm ci
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: staging
+      - key: PORT
+        value: 8000
+      - key: DATABASE
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CLIENT_URL
+        value: https://roshinis-frontend-staging.onrender.com
+
+  # ── PRODUCTION BACKEND ──
+  - type: web
+    name: roshinis-backend-production
+    env: node
+    plan: starter
+    region: oregon
+    buildCommand: npm ci
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8000
+      - key: DATABASE
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CLIENT_URL
+        value: https://roshinis-frontend-production.onrender.com

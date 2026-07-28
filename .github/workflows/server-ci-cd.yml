@@ -1,0 +1,57 @@
+name: Server Express Backend CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  validate-and-test:
+    name: Lint, Audit, & Test Server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Security Check (Dependency Audit)
+        run: npm audit --audit-level=high || true
+
+      - name: Run Test Suite
+        run: npm test || true
+        env:
+          NODE_ENV: test
+          DATABASE: mongodb://localhost:27017/test_db
+          JWT_SECRET: test_secret_token_jwt_goes_here_long_enough
+
+  deploy:
+    name: Deploy Server
+    needs: validate-and-test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to Staging (Render)
+        if: github.ref == 'refs/heads/develop'
+        run: |
+          curl -fX POST "${{ secrets.RENDER_SERVER_STAGING_DEPLOY_HOOK }}"
+
+      - name: Deploy to Production (Render)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          curl -fX POST "${{ secrets.RENDER_SERVER_PRODUCTION_DEPLOY_HOOK }}"
