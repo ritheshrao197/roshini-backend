@@ -274,4 +274,13 @@ const gracefulShutdown = async (signal) => {
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
+// ── Global Safety Net: prevent crashes from unhandled promise rejections ──
+process.on("unhandledRejection", (reason, promise) => {
+  logger.error({ reason }, "[Process] Unhandled Promise Rejection — server will NOT crash.");
+});
+
+process.on("uncaughtException", (err) => {
+  logger.error({ err }, "[Process] Uncaught Exception — server will NOT crash.");
+});
+
 module.exports = app;

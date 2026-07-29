@@ -215,9 +215,13 @@ class Order {
         }
 
         if (userObj.email) {
-          EmailService.sendOrderConfirmation(userObj.email, save._id, total);
+          EmailService.sendOrderConfirmation(userObj.email, save._id, total).catch(err => {
+            console.error("[OrderController] sendOrderConfirmation failed:", err.message);
+          });
         }
-        EmailService.sendAdminNewOrderAlert("admin@roshinis.com", save._id, total);
+        EmailService.sendAdminNewOrderAlert("admin@roshinis.com", save._id, total).catch(err => {
+          console.error("[OrderController] sendAdminNewOrderAlert failed:", err.message);
+        });
 
         // Send Telegram notification (async, non-blocking)
         try {
