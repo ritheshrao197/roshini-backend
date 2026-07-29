@@ -192,6 +192,8 @@ class Order {
         address,
         phone,
         coupon: couponSnapshot,
+        paymentStatus: total === 0 ? "SUCCESS" : "PENDING",
+        status: total === 0 ? "CONFIRMED" : "PENDING",
         pricing: {
           subtotal,
           couponDiscount,
