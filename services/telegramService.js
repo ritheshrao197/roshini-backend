@@ -3,8 +3,8 @@ const orderModel = require("../models/orders");
 
 class TelegramService {
   async sendOrderNotification(order) {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    const botToken = process.env.TELEGRAM_BOT_TOKEN || "8947967700:AAEGtlEGP-4_Vy0W7TfijAIQKP0LtpJHrYw";
+    const chatId = process.env.TELEGRAM_CHAT_ID || "279214768";
 
     if (!botToken || !chatId) {
       console.warn("[TelegramService] TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is not configured in environment variables.");

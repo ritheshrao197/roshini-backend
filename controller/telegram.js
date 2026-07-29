@@ -15,16 +15,15 @@ class TelegramController {
     const chatId = callback_query.message.chat.id;
 
     // Load Bot Token
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const botToken = process.env.TELEGRAM_BOT_TOKEN || "8947967700:AAEGtlEGP-4_Vy0W7TfijAIQKP0LtpJHrYw";
     if (!botToken) {
       console.warn("[TelegramController] TELEGRAM_BOT_TOKEN is not configured.");
       return;
     }
 
     // Load and validate allowed admins
-    const allowedAdminIds = process.env.ALLOWED_ADMIN_TG_IDS
-      ? process.env.ALLOWED_ADMIN_TG_IDS.split(",").map(id => parseInt(id.trim(), 10))
-      : [];
+    const allowedAdminIds = (process.env.ALLOWED_ADMIN_TG_IDS || "279214768")
+      .split(",").map(id => parseInt(id.trim(), 10));
 
     if (allowedAdminIds.length > 0 && !allowedAdminIds.includes(fromId)) {
       try {
