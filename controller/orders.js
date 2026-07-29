@@ -5,6 +5,7 @@ const EmailService = require("../services/emailService");
 const couponValidationService = require("../services/coupon/couponValidationService");
 const couponCalculationService = require("../services/coupon/couponCalculationService");
 const couponUsageService = require("../services/coupon/couponUsageService");
+const { ulid } = require("ulid");
 
 class Order {
   async getAllOrders(req, res) {
@@ -184,7 +185,9 @@ class Order {
       }
 
       // 6. Create and save order
+      const orderNumber = `RHP-${ulid()}`;
       const newOrder = new orderModel({
+        orderNumber,
         allProduct,
         user,
         amount: total, // Secure total
