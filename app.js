@@ -55,6 +55,7 @@ const subscriberRouter = require("./routes/subscribers");
 const accountRouter = require("./routes/account");
 const newsletterRouter = require("./routes/newsletter");
 const homepageRouter = require("./routes/homepage");
+const telegramRouter = require("./routes/telegram");
 // Import Auth middleware for check user login or not~
 const { loginCheck } = require("./middleware/auth");
 const CreateAllFolder = require("./config/uploadFolderCreateScript");
@@ -187,6 +188,7 @@ app.use("/api", websiteSectionsRouter);
 app.use("/api", userManagementRouter); // RBAC & User Management
 app.use("/api/newsletter", newsletterRouter);
 app.use("/api", homepageRouter);
+app.use("/api/telegram", telegramRouter);
 // Health Check Endpoints
 app.get("/health", (req, res) => {
   res.json({ status: "healthy" });

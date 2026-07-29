@@ -192,6 +192,8 @@ class Order {
         address,
         phone,
         coupon: couponSnapshot,
+        paymentStatus: total === 0 ? "SUCCESS" : "PENDING",
+        status: total === 0 ? "CONFIRMED" : "PENDING",
         pricing: {
           subtotal,
           couponDiscount,
@@ -213,6 +215,16 @@ class Order {
           EmailService.sendOrderConfirmation(userObj.email, save._id, total);
         }
         EmailService.sendAdminNewOrderAlert("admin@roshinis.com", save._id, total);
+
+        // Send Telegram notification (async, non-blocking)
+        try {
+          const telegramService = require("../services/telegramService");
+          telegramService.sendOrderNotification(save._id).catch(err => {
+            console.error("[OrderController] Telegram notification failed:", err);
+          });
+        } catch (telErr) {
+          console.error("[OrderController] Telegram notification require failed:", telErr);
+        }
         
         return res.json({ success: "Order created successfully", orderId: save._id });
       }
