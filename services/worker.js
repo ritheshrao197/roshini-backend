@@ -50,6 +50,10 @@ if (queueAvailable && connection) {
     logger.error({ err }, `[Worker] Email job ${job?.id} failed.`);
   });
 
+  emailWorker.on("error", (err) => {
+    logger.error({ err }, "[Worker] Email worker connection error.");
+  });
+
   // ── Audit Log Worker ──
   const auditWorker = new Worker(
     "auditQueue",
@@ -80,5 +84,9 @@ if (queueAvailable && connection) {
 
   auditWorker.on("failed", (job, err) => {
     logger.error({ err }, `[Worker] Audit job ${job?.id} failed.`);
+  });
+
+  auditWorker.on("error", (err) => {
+    logger.error({ err }, "[Worker] Audit worker connection error.");
   });
 }
