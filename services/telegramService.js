@@ -59,12 +59,24 @@ ${couponText}
 <b>Items:</b>
 ${itemsText}`;
 
-      // Call Telegram Bot API
+      // Call Telegram Bot API with inline keyboard markup for order state adjustments
       const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
       await axios.post(url, {
         chat_id: chatId,
         text: message,
-        parse_mode: "HTML"
+        parse_mode: "HTML",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "⚙️ Processing", callback_data: `status:${populatedOrder._id}:Processing` },
+              { text: "🚚 Shipped", callback_data: `status:${populatedOrder._id}:Shipped` }
+            ],
+            [
+              { text: "✅ Delivered", callback_data: `status:${populatedOrder._id}:Delivered` },
+              { text: "✖ Cancel", callback_data: `status:${populatedOrder._id}:Cancelled` }
+            ]
+          ]
+        }
       });
 
       console.log(`[TelegramService] Telegram notification sent for order #${orderNumber}`);
