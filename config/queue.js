@@ -26,8 +26,16 @@ if (redisUrl || (restUrl && restToken)) {
         port: 6379,
         password: restToken,
         tls: {}, // Upstash TCP requires TLS
-        connectTimeout: 5000,
+        connectTimeout: 3000,
         maxRetriesPerRequest: null, // Mandatory for BullMQ
+        retryStrategy(times) {
+          if (times > 2) {
+            logger.warn("[Queue] Redis connection retry limit reached. Disabling background queues.");
+            queueAvailable = false;
+            return null; // Stop reconnecting
+          }
+          return 500;
+        },
       };
     }
 
@@ -35,17 +43,17 @@ if (redisUrl || (restUrl && restToken)) {
     
     connection.on("connect", () => {
       logger.info("[Queue] Successfully connected to Redis TCP.");
+      queueAvailable = true;
     });
 
     connection.on("error", (err) => {
-      // Bypasses crashing process, falls back to inline execution
       logger.warn(`[Queue] Redis TCP connection error: ${err.message}. Background queues offline.`);
       queueAvailable = false;
     });
 
     emailQueue = new Queue("emailQueue", { connection, defaultJobOptions: { removeOnComplete: true } });
     auditQueue = new Queue("auditQueue", { connection, defaultJobOptions: { removeOnComplete: true } });
-    queueAvailable = true;
+    queueAvailable = connection.status === "ready";
   } catch (err) {
     logger.error({ err }, "[Queue] Failed to initialize queues. Background queues offline.");
     queueAvailable = false;
@@ -54,9 +62,16 @@ if (redisUrl || (restUrl && restToken)) {
   logger.warn("[Queue] Redis credentials not configured. Background queues offline.");
 }
 
+function isQueueAvailable() {
+  return queueAvailable && connection && connection.status === "ready";
+}
+
 module.exports = {
   connection,
   emailQueue,
   auditQueue,
-  queueAvailable,
+  get queueAvailable() {
+    return isQueueAvailable();
+  },
+  isQueueAvailable,
 };
