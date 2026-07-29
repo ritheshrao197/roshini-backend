@@ -60,6 +60,7 @@ class PaymentProcessor {
       return;
     }
 
+    let savedOrderId = null;
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
@@ -67,6 +68,7 @@ class PaymentProcessor {
         if (!order) {
           throw new Error(`Order with transactionId ${transactionId} not found`);
         }
+        savedOrderId = order._id;
 
         // 1. Idempotency Check
         if (order.paymentStatus === "SUCCESS") {
@@ -113,6 +115,18 @@ class PaymentProcessor {
         }], { session });
 
       });
+
+      // Send Telegram notification (after successful database transaction commit)
+      if (savedOrderId) {
+        try {
+          const telegramService = require("../telegramService");
+          telegramService.sendOrderNotification(savedOrderId).catch(err => {
+            console.error("[PaymentProcessor] Telegram notification failed:", err);
+          });
+        } catch (telErr) {
+          console.error("[PaymentProcessor] Telegram notification require failed:", telErr);
+        }
+      }
     } catch (err) {
       console.error("[PaymentProcessor] processSuccess error:", err);
       await this._logDeadLetter(transactionId, gateway, data, err);
