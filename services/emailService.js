@@ -97,7 +97,7 @@ class EmailService {
         console.error("[EmailService] Queue error. Falling back to direct email:", err.message);
       }
     }
-    await this.sendWelcomeEmailDirect(toEmail, code);
+    this.sendWelcomeEmailDirect(toEmail, code).catch(err => console.error("[EmailService] Direct welcome email error:", err.message));
   }
 
   // ── Order Confirmation ──
@@ -132,7 +132,7 @@ class EmailService {
         console.error("[EmailService] Queue error. Falling back to direct email:", err.message);
       }
     }
-    await this.sendOrderConfirmationDirect(toEmail, orderId, amount);
+    this.sendOrderConfirmationDirect(toEmail, orderId, amount).catch(err => console.error("[EmailService] Direct order confirmation error:", err.message));
   }
 
   // ── Payment Success ──
@@ -165,7 +165,7 @@ class EmailService {
         console.error("[EmailService] Queue error. Falling back to direct email:", err.message);
       }
     }
-    await this.sendPaymentSuccessDirect(toEmail, transactionId, amount);
+    this.sendPaymentSuccessDirect(toEmail, transactionId, amount).catch(err => console.error("[EmailService] Direct payment success error:", err.message));
   }
 
   // ── Payment Failed ──
@@ -198,7 +198,7 @@ class EmailService {
         console.error("[EmailService] Queue error. Falling back to direct email:", err.message);
       }
     }
-    await this.sendPaymentFailedDirect(toEmail, transactionId);
+    this.sendPaymentFailedDirect(toEmail, transactionId).catch(err => console.error("[EmailService] Direct payment failed error:", err.message));
   }
 
   // ── Order Shipped ──
@@ -231,7 +231,7 @@ class EmailService {
         console.error("[EmailService] Queue error. Falling back to direct email:", err.message);
       }
     }
-    await this.sendOrderShippedDirect(toEmail, orderId);
+    this.sendOrderShippedDirect(toEmail, orderId).catch(err => console.error("[EmailService] Direct order shipped error:", err.message));
   }
 
   // ── Password Reset ──
@@ -264,7 +264,7 @@ class EmailService {
         console.error("[EmailService] Queue error. Falling back to direct email:", err.message);
       }
     }
-    await this.sendPasswordResetDirect(toEmail, resetLink);
+    this.sendPasswordResetDirect(toEmail, resetLink).catch(err => console.error("[EmailService] Direct password reset error:", err.message));
   }
 
   // ── Admin Alerts ──
@@ -296,7 +296,7 @@ class EmailService {
         console.error("[EmailService] Queue error. Falling back to direct email:", err.message);
       }
     }
-    await this.sendAdminNewOrderAlertDirect(adminEmail, orderId, amount);
+    this.sendAdminNewOrderAlertDirect(adminEmail, orderId, amount).catch(err => console.error("[EmailService] Direct admin order alert error:", err.message));
   }
 }
 
