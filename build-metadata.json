@@ -1,8 +1,8 @@
 {
-  "version": "1.0.1",
-  "environment": "production",
-  "commit": "15d4abc2a329b181c35ba56eb03c1b658269317a",
-  "build": 8,
-  "branch": "main",
-  "builtAt": "2026-07-28T17:01:04Z"
+  "version": "1.1.2-rc.1",
+  "environment": "staging",
+  "commit": "6b3c20c2de85fa25f799ba0feb41fedf1e5bfcad",
+  "build": 28,
+  "branch": "release/1.1.2",
+  "builtAt": "2026-07-29T19:38:55Z"
 }
