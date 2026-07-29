@@ -101,11 +101,13 @@ class Order {
       // 3. Lock & Validate inventory stock, calculate subtotal securely
       let subtotal = 0;
       const cartItems = [];
+      const productMap = new Map(); // Cache products to avoid redundant DB lookups
       for (const item of allProduct) {
         const product = await productModel.findById(item.id);
         if (!product) {
           return res.status(404).json({ error: `Product not found` });
         }
+        productMap.set(item.id.toString(), product); // Cache for reuse in step 5
         
         let price = product.pPrice;
         let variantObj = null;
@@ -167,22 +169,23 @@ class Order {
         console.warn(`Amount mismatch. Frontend: ${req.body.amount}, Backend: ${total}`);
       }
 
-      // 5. Atomically decrement stock
-      for (const item of allProduct) {
-        const product = await productModel.findById(item.id);
-        if (item.variantId && product && product.pVariants && product.pVariants.length > 0) {
+      // 5. Atomically decrement stock — reuse cached products from step 3
+      await Promise.all(allProduct.map(async (item) => {
+        const product = productMap.get(item.id.toString());
+        if (!product) return;
+        if (item.variantId && product.pVariants && product.pVariants.length > 0) {
           const variantIndex = product.pVariants.findIndex(v => v._id.toString() === item.variantId || v.weight === item.variantId);
           if (variantIndex !== -1) {
             product.pVariants[variantIndex].quantity -= item.quantitiy;
             product.pSold += item.quantitiy;
             await product.save();
           }
-        } else if (product) {
+        } else {
           product.pQuantity -= item.quantitiy;
           product.pSold += item.quantitiy;
           await product.save();
         }
-      }
+      }));
 
       // 6. Create and save order
       const orderNumber = `RHP-${ulid()}`;
