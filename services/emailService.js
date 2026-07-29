@@ -87,13 +87,17 @@ class EmailService {
   static async sendWelcomeEmail(toEmail, code) {
     const { emailQueue, queueAvailable } = require("../config/queue");
     if (queueAvailable && emailQueue) {
-      await emailQueue.add("sendEmail", {
-        type: "welcome",
-        data: { toEmail, nameOrCode: code }
-      });
-    } else {
-      await this.sendWelcomeEmailDirect(toEmail, code);
+      try {
+        await emailQueue.add("sendEmail", {
+          type: "welcome",
+          data: { toEmail, nameOrCode: code }
+        });
+        return;
+      } catch (err) {
+        console.error("[EmailService] Queue error. Falling back to direct email:", err.message);
+      }
     }
+    await this.sendWelcomeEmailDirect(toEmail, code);
   }
 
   // ── Order Confirmation ──
@@ -118,13 +122,17 @@ class EmailService {
   static async sendOrderConfirmation(toEmail, orderId, amount) {
     const { emailQueue, queueAvailable } = require("../config/queue");
     if (queueAvailable && emailQueue) {
-      await emailQueue.add("sendEmail", {
-        type: "orderConfirmation",
-        data: { toEmail, orderId, amount }
-      });
-    } else {
-      await this.sendOrderConfirmationDirect(toEmail, orderId, amount);
+      try {
+        await emailQueue.add("sendEmail", {
+          type: "orderConfirmation",
+          data: { toEmail, orderId, amount }
+        });
+        return;
+      } catch (err) {
+        console.error("[EmailService] Queue error. Falling back to direct email:", err.message);
+      }
     }
+    await this.sendOrderConfirmationDirect(toEmail, orderId, amount);
   }
 
   // ── Payment Success ──
@@ -147,13 +155,17 @@ class EmailService {
   static async sendPaymentSuccess(toEmail, transactionId, amount) {
     const { emailQueue, queueAvailable } = require("../config/queue");
     if (queueAvailable && emailQueue) {
-      await emailQueue.add("sendEmail", {
-        type: "paymentSuccess",
-        data: { toEmail, transactionId, amount }
-      });
-    } else {
-      await this.sendPaymentSuccessDirect(toEmail, transactionId, amount);
+      try {
+        await emailQueue.add("sendEmail", {
+          type: "paymentSuccess",
+          data: { toEmail, transactionId, amount }
+        });
+        return;
+      } catch (err) {
+        console.error("[EmailService] Queue error. Falling back to direct email:", err.message);
+      }
     }
+    await this.sendPaymentSuccessDirect(toEmail, transactionId, amount);
   }
 
   // ── Payment Failed ──
@@ -176,13 +188,17 @@ class EmailService {
   static async sendPaymentFailed(toEmail, transactionId) {
     const { emailQueue, queueAvailable } = require("../config/queue");
     if (queueAvailable && emailQueue) {
-      await emailQueue.add("sendEmail", {
-        type: "paymentFailed",
-        data: { toEmail, transactionId }
-      });
-    } else {
-      await this.sendPaymentFailedDirect(toEmail, transactionId);
+      try {
+        await emailQueue.add("sendEmail", {
+          type: "paymentFailed",
+          data: { toEmail, transactionId }
+        });
+        return;
+      } catch (err) {
+        console.error("[EmailService] Queue error. Falling back to direct email:", err.message);
+      }
     }
+    await this.sendPaymentFailedDirect(toEmail, transactionId);
   }
 
   // ── Order Shipped ──
@@ -205,13 +221,17 @@ class EmailService {
   static async sendOrderShipped(toEmail, orderId) {
     const { emailQueue, queueAvailable } = require("../config/queue");
     if (queueAvailable && emailQueue) {
-      await emailQueue.add("sendEmail", {
-        type: "orderShipped",
-        data: { toEmail, orderId }
-      });
-    } else {
-      await this.sendOrderShippedDirect(toEmail, orderId);
+      try {
+        await emailQueue.add("sendEmail", {
+          type: "orderShipped",
+          data: { toEmail, orderId }
+        });
+        return;
+      } catch (err) {
+        console.error("[EmailService] Queue error. Falling back to direct email:", err.message);
+      }
     }
+    await this.sendOrderShippedDirect(toEmail, orderId);
   }
 
   // ── Password Reset ──
@@ -234,13 +254,17 @@ class EmailService {
   static async sendPasswordReset(toEmail, resetLink) {
     const { emailQueue, queueAvailable } = require("../config/queue");
     if (queueAvailable && emailQueue) {
-      await emailQueue.add("sendEmail", {
-        type: "passwordReset",
-        data: { toEmail, resetLink }
-      });
-    } else {
-      await this.sendPasswordResetDirect(toEmail, resetLink);
+      try {
+        await emailQueue.add("sendEmail", {
+          type: "passwordReset",
+          data: { toEmail, resetLink }
+        });
+        return;
+      } catch (err) {
+        console.error("[EmailService] Queue error. Falling back to direct email:", err.message);
+      }
     }
+    await this.sendPasswordResetDirect(toEmail, resetLink);
   }
 
   // ── Admin Alerts ──
@@ -262,13 +286,17 @@ class EmailService {
   static async sendAdminNewOrderAlert(adminEmail, orderId, amount) {
     const { emailQueue, queueAvailable } = require("../config/queue");
     if (queueAvailable && emailQueue) {
-      await emailQueue.add("sendEmail", {
-        type: "adminNewOrder",
-        data: { toEmail: adminEmail, orderId, amount }
-      });
-    } else {
-      await this.sendAdminNewOrderAlertDirect(adminEmail, orderId, amount);
+      try {
+        await emailQueue.add("sendEmail", {
+          type: "adminNewOrder",
+          data: { toEmail: adminEmail, orderId, amount }
+        });
+        return;
+      } catch (err) {
+        console.error("[EmailService] Queue error. Falling back to direct email:", err.message);
+      }
     }
+    await this.sendAdminNewOrderAlertDirect(adminEmail, orderId, amount);
   }
 }
 
