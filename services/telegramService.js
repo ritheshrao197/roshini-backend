@@ -81,7 +81,7 @@ ${itemsText}`;
 
       console.log(`[TelegramService] Telegram notification sent for order #${orderNumber}`);
     } catch (err) {
-      console.error("[TelegramService] Error sending telegram notification:", err.message);
+      console.error("[TelegramService] Error sending telegram notification:", err.response ? JSON.stringify(err.response.data) : err.message);
     }
   }
 }
