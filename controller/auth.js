@@ -8,6 +8,17 @@ const logAudit = require("../config/auditLogger");
 const refreshTokenModel = require("../models/refreshToken");
 const crypto = require("crypto");
 
+function validateStrictPassword(password) {
+  if (!password || typeof password !== "string") return "Password is required";
+  if (password.length < 8) return "Password must be at least 8 characters long";
+  if (password.length > 255) return "Password cannot exceed 255 characters";
+  if (!/[A-Z]/.test(password)) return "Password must contain at least 1 uppercase letter (A-Z)";
+  if (!/[a-z]/.test(password)) return "Password must contain at least 1 lowercase letter (a-z)";
+  if (!/[0-9]/.test(password)) return "Password must contain at least 1 number (0-9)";
+  if (!/[^A-Za-z0-9]/.test(password)) return "Password must contain at least 1 special character (!@#$%^&*)";
+  return null;
+}
+
 class Auth {
   async isAdmin(req, res) {
     let { loggedInUserId } = req.body;
@@ -48,10 +59,11 @@ class Auth {
     } else {
       if (validateEmail(email)) {
         name = toTitleCase(name);
-        if ((password.length > 255) | (password.length < 8)) {
+        const passErr = validateStrictPassword(password);
+        if (passErr) {
           error = {
             ...error,
-            password: "Password must be 8 charecter",
+            password: passErr,
             name: "",
             email: "",
           };
@@ -341,8 +353,9 @@ class Auth {
     if (!email || !token || !newPassword) {
       return res.json({ error: "All fields are required" });
     }
-    if (newPassword.length < 8 || newPassword.length > 255) {
-      return res.json({ error: "Password must be between 8 and 255 characters" });
+    const passErr = validateStrictPassword(newPassword);
+    if (passErr) {
+      return res.json({ error: passErr });
     }
 
     try {
