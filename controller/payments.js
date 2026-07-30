@@ -150,6 +150,16 @@ class PaymentController {
       });
       await newOrder.save();
 
+      // Notify Telegram on new order initiation
+      try {
+        const telegramService = require("../services/telegramService");
+        telegramService.sendOrderNotification(newOrder._id).catch(err => {
+          console.error("[PaymentsController] Telegram notification failed:", err.message);
+        });
+      } catch (telErr) {
+        console.error("[PaymentsController] Telegram notification require failed:", telErr.message);
+      }
+
       const provider = paymentService.getProvider(gateway);
       const payload = await provider.initiatePayment(newOrder);
 

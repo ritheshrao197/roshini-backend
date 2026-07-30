@@ -13,23 +13,28 @@ function escapeHtml(str) {
 
 class TelegramService {
   async sendOrderNotification(order) {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN || "8947967700:AAEGtlEGP-4_Vy0W7TfijAIQKP0LtpJHrYw";
-    const chatId = process.env.TELEGRAM_CHAT_ID || "279214768";
+    const rawToken = process.env.TELEGRAM_BOT_TOKEN || "8947967700:AAEGtlEGP-4_Vy0W7TfijAIQKP0LtpJHrYw";
+    const rawChatId = process.env.TELEGRAM_CHAT_ID || "279214768";
+
+    const botToken = String(rawToken).trim();
+    const chatId = String(rawChatId).trim();
 
     if (!botToken || !chatId) {
-      console.warn("[TelegramService] TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is not configured in environment variables.");
+      console.warn("[TelegramService] TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is not configured.");
       return;
     }
 
     try {
-      // Fetch fully populated order details to ensure product names, prices, and user details are present
+      const targetId = (order && order._id) ? order._id : order;
+      console.log(`[TelegramService] Sending order notification for ID ${targetId} to chat ${chatId}...`);
+
       const populatedOrder = await orderModel
-        .findById(order._id || order)
+        .findById(targetId)
         .populate("allProduct.id", "pName pPrice")
         .populate("user", "name email");
 
       if (!populatedOrder) {
-        console.error(`[TelegramService] Order not found: ${order._id || order}`);
+        console.error(`[TelegramService] Order not found: ${targetId}`);
         return;
       }
 
@@ -91,7 +96,7 @@ ${itemsText}`;
         }
       });
 
-      console.log(`[TelegramService] Telegram notification sent for order #${orderNumber}`);
+      console.log(`[TelegramService] Telegram notification sent successfully for order #${orderNumber}`);
     } catch (err) {
       console.error("[TelegramService] Error sending telegram notification:", err.response ? JSON.stringify(err.response.data) : err.message);
     }
