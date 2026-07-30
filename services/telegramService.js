@@ -1,5 +1,15 @@
 const axios = require("axios");
 const orderModel = require("../models/orders");
+require("../models/products");
+require("../models/users");
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
 
 class TelegramService {
   async sendOrderNotification(order) {
@@ -24,9 +34,10 @@ class TelegramService {
       }
 
       const orderNumber = populatedOrder.orderNumber || populatedOrder._id;
-      const customerName = populatedOrder.user ? populatedOrder.user.name : "Guest";
-      const phone = populatedOrder.phone || "N/A";
-      const address = populatedOrder.address || "N/A";
+      const customerName = escapeHtml(populatedOrder.user ? populatedOrder.user.name : "Guest");
+      const userEmail = escapeHtml(populatedOrder.user && populatedOrder.user.email ? populatedOrder.user.email : "");
+      const phone = escapeHtml(populatedOrder.phone || "N/A");
+      const address = escapeHtml(populatedOrder.address || "N/A");
       const totalAmount = populatedOrder.amount;
       const paymentStatus = populatedOrder.paymentStatus || "PENDING";
       const paymentGateway = populatedOrder.payment?.gateway || (populatedOrder.transactionId?.startsWith("FREE_") ? "Coupon/Free" : "Unknown");
@@ -34,9 +45,10 @@ class TelegramService {
       let itemsText = "";
       if (populatedOrder.allProduct && Array.isArray(populatedOrder.allProduct)) {
         populatedOrder.allProduct.forEach(item => {
-          const name = item.id ? item.id.pName : "Unknown Formulation";
-          const variant = item.variantName ? ` (${item.variantName})` : "";
-          itemsText += `• ${name}${variant} x ${item.quantitiy} (₹${item.price} each)\n`;
+          const name = escapeHtml(item.id ? item.id.pName : "Unknown Formulation");
+          const variant = item.variantName ? ` (${escapeHtml(item.variantName)})` : "";
+          const priceDisplay = item.price ? ` (₹${item.price} each)` : (item.id && item.id.pPrice ? ` (₹${item.id.pPrice} each)` : "");
+          itemsText += `• ${name}${variant} x ${item.quantitiy}${priceDisplay}\n`;
         });
       } else {
         itemsText = "No items listed.\n";
@@ -44,14 +56,14 @@ class TelegramService {
 
       let couponText = "";
       if (populatedOrder.coupon && populatedOrder.coupon.code) {
-        couponText = `<b>Coupon:</b> ${populatedOrder.coupon.code} (Saved ₹${populatedOrder.coupon.discountAmount})\n`;
+        couponText = `<b>Coupon:</b> ${escapeHtml(populatedOrder.coupon.code)} (Saved ₹${populatedOrder.coupon.discountAmount || 0})\n`;
       }
 
       const message = 
 `🔔 <b>New Order Received!</b>
 
-<b>Order Number:</b> #${orderNumber}
-<b>Customer:</b> ${customerName} (${populatedOrder.user && populatedOrder.user.email ? populatedOrder.user.email : ""})
+<b>Order Number:</b> #${escapeHtml(String(orderNumber))}
+<b>Customer:</b> ${customerName} (${userEmail})
 <b>Contact:</b> ${phone}
 <b>Delivery Address:</b> ${address}
 <b>Total Amount:</b> ₹${totalAmount} (${paymentStatus} via ${paymentGateway})
