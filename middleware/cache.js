@@ -18,19 +18,20 @@ const cacheMiddleware = (prefix, ttlSeconds) => async (req, res, next) => {
   try {
     const cachedData = await redisClient.get(key);
     if (cachedData) {
-      // Upstash Redis automatically parses JSON if it was set as an object,
-      // but in some cases it might return a string. Handle both.
       const parsedData = typeof cachedData === "string" ? JSON.parse(cachedData) : cachedData;
       return res.json(parsedData);
     }
 
     // Intercept res.json to cache the response before sending
     const originalJson = res.json.bind(res);
-    res.json = async (body) => {
+    res.json = (body) => {
       try {
-        // Only cache successful responses
         if (res.statusCode >= 200 && res.statusCode < 300 && body && !body.error) {
-          await redisClient.setex(key, ttlSeconds, JSON.stringify(body));
+          if (typeof redisClient.setex === "function") {
+            redisClient.setex(key, ttlSeconds, JSON.stringify(body)).catch(() => {});
+          } else {
+            redisClient.set(key, JSON.stringify(body), { ex: ttlSeconds }).catch(() => {});
+          }
         }
       } catch (err) {
         console.error("[CacheMiddleware] Failed to set cache for key:", key, err.message);
@@ -46,13 +47,11 @@ const cacheMiddleware = (prefix, ttlSeconds) => async (req, res, next) => {
 };
 
 const clearCache = async (prefix) => {
-  if (!redisClient) return;
+  if (!redisClient || typeof redisClient.keys !== "function") return;
   try {
-    // Upstash Redis provides `keys` command, but it's not optimal for large datasets.
-    // For this small ecommerce use-case, it's acceptable.
     const keys = await redisClient.keys(`roshinis:${prefix}:*`);
-    if (keys.length > 0) {
-      await redisClient.del(...keys);
+    if (keys && keys.length > 0) {
+      await redisClient.del(keys);
     }
   } catch (err) {
     console.error("[CacheMiddleware] clearCache error:", err.message);

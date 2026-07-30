@@ -57,15 +57,42 @@ const safeRedisClient = rawClient
         }
       },
 
-      async del(key) {
+      async setex(key, ttl, value) {
         if (isDisabled && Date.now() < disabledUntil) return null;
         try {
-          return await withTimeout(rawClient.del(key), 1000);
+          return await withTimeout(rawClient.set(key, value, { ex: ttl }), 1000);
+        } catch (err) {
+          console.warn(`[Redis CircuitBreaker] Redis SETEX error: ${err.message}. Disabling Redis for 10 minutes.`);
+          isDisabled = true;
+          disabledUntil = Date.now() + 10 * 60 * 1000;
+          return null;
+        }
+      },
+
+      async del(...keys) {
+        if (isDisabled && Date.now() < disabledUntil) return null;
+        if (!keys || keys.length === 0) return null;
+        try {
+          const flatKeys = keys.flat();
+          if (flatKeys.length === 0) return null;
+          return await withTimeout(rawClient.del(...flatKeys), 1000);
         } catch (err) {
           console.warn(`[Redis CircuitBreaker] Redis DEL error: ${err.message}. Disabling Redis for 10 minutes.`);
           isDisabled = true;
           disabledUntil = Date.now() + 10 * 60 * 1000;
           return null;
+        }
+      },
+
+      async keys(pattern) {
+        if (isDisabled && Date.now() < disabledUntil) return [];
+        try {
+          return await withTimeout(rawClient.keys(pattern), 1000);
+        } catch (err) {
+          console.warn(`[Redis CircuitBreaker] Redis KEYS error: ${err.message}. Disabling Redis for 10 minutes.`);
+          isDisabled = true;
+          disabledUntil = Date.now() + 10 * 60 * 1000;
+          return [];
         }
       },
     }

@@ -5,8 +5,8 @@ const multer = require("multer");
 const { cacheMiddleware, clearCache } = require("../middleware/cache");
 const validate = require("../middleware/validate");
 const { submitReviewSchema } = require("../validators/product.validator");
-
 const { uploadMiddleware } = require("../config/cloudinary");
+const imageValidator = require("../middleware/imageValidator");
 
 // Products: 300s TTL (5 minutes)
 router.get("/all-product", cacheMiddleware("products", 300), productController.getAllProduct);
@@ -17,31 +17,23 @@ router.post("/product-by-price", productController.getProductByPrice);
 router.post("/wish-product", productController.getWishProduct);
 router.post("/cart-product", productController.getCartProduct);
 
-const imageValidator = require("../middleware/imageValidator");
-
-router.post("/add-product", uploadMiddleware.any(), imageValidator, (req, res, next) => {
-  clearCache("products");
+const clearProductCaches = async (req, res, next) => {
+  try {
+    await clearCache("products");
+    await clearCache("product-slug");
+    await clearCache("product-related");
+    await clearCache("homepage");
+  } catch (e) {}
   next();
-}, productController.postAddProduct);
+};
 
-router.post("/edit-product", uploadMiddleware.any(), imageValidator, (req, res, next) => {
-  clearCache("products");
-  next();
-}, productController.postEditProduct);
-
-router.post("/delete-product", (req, res, next) => {
-  clearCache("products");
-  next();
-}, productController.getDeleteProduct);
-
-router.post("/restore-product", (req, res, next) => {
-  clearCache("products");
-  next();
-}, productController.postRestoreProduct);
+router.post("/add-product", uploadMiddleware.any(), imageValidator, clearProductCaches, productController.postAddProduct);
+router.post("/edit-product", uploadMiddleware.any(), imageValidator, clearProductCaches, productController.postEditProduct);
+router.post("/delete-product", clearProductCaches, productController.getDeleteProduct);
+router.post("/restore-product", clearProductCaches, productController.postRestoreProduct);
 
 router.post("/single-product", productController.getSingleProduct);
-
-router.post("/add-review", validate(submitReviewSchema), productController.postAddReview);
-router.post("/delete-review", productController.deleteReview);
+router.post("/add-review", validate(submitReviewSchema), clearProductCaches, productController.postAddReview);
+router.post("/delete-review", clearProductCaches, productController.deleteReview);
 
 module.exports = router;
