@@ -101,6 +101,39 @@ ${itemsText}`;
       console.error("[TelegramService] Error sending telegram notification:", err.response ? JSON.stringify(err.response.data) : err.message);
     }
   }
+
+  async sendDeploymentNotification(version) {
+    const rawToken = process.env.TELEGRAM_BOT_TOKEN || "8947967700:AAEGtlEGP-4_Vy0W7TfijAIQKP0LtpJHrYw";
+    const rawChatId = process.env.TELEGRAM_CHAT_ID || "279214768";
+
+    const botToken = String(rawToken).trim();
+    const chatId = String(rawChatId).trim();
+
+    if (!botToken || !chatId) return;
+
+    try {
+      const env = process.env.NODE_ENV || "production";
+      const timestamp = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+      const message = 
+`🚀 <b>New Build Release Deployed!</b>
+
+<b>Backend Version:</b> v${escapeHtml(String(version))}
+<b>Environment:</b> ${escapeHtml(String(env))}
+<b>Deployed At:</b> ${escapeHtml(String(timestamp))}
+<b>Status:</b> ✅ Server Active & Healthy`;
+
+      const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+      await axios.post(url, {
+        chat_id: chatId,
+        text: message,
+        parse_mode: "HTML"
+      });
+      console.log(`[TelegramService] Deployment notification sent for version v${version}`);
+    } catch (err) {
+      console.error("[TelegramService] Deployment notification error:", err.response ? JSON.stringify(err.response.data) : err.message);
+    }
+  }
 }
 
 module.exports = new TelegramService();

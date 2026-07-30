@@ -75,11 +75,20 @@ mongoose
     useUnifiedTopology: true,
     useCreateIndex: true,
   })
-  .then(() =>
+  .then(() => {
     console.log(
       "==============Mongodb Database Connected Successfully=============="
-    )
-  )
+    );
+    try {
+      const pkg = require("./package.json");
+      const telegramService = require("./services/telegramService");
+      telegramService.sendDeploymentNotification(pkg.version).catch((err) => {
+        console.error("[App] Telegram deployment alert failed:", err.message);
+      });
+    } catch (e) {
+      console.error("[App] Failed to send deployment alert:", e.message);
+    }
+  })
   .catch((err) => console.log("Database Not Connected !!! Error:", err));
 
 // ── Performance & Timeout Middlewares ──
