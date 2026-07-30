@@ -1,6 +1,7 @@
 const PaymentProvider = require("../interfaces/paymentProvider");
 const crypto = require("crypto");
 const axios = require("axios");
+const userModel = require("../../../models/users");
 
 class PayUProvider extends PaymentProvider {
   constructor() {
@@ -41,12 +42,19 @@ class PayUProvider extends PaymentProvider {
       throw new Error("BACKEND_URL is not configured in the server environment variables.");
     }
 
+    let userObj = null;
+    if (order.user && typeof order.user === "object" && order.user.email) {
+      userObj = order.user;
+    } else if (order.user) {
+      userObj = await userModel.findById(order.user).lean().exec();
+    }
+
     const txnid = order.payment.transactionId;
     const amount = order.amount;
     const productinfo = "Roshinis Home Products Purchase";
-    const firstname = order.user && order.user.name ? order.user.name : "Customer";
-    const email = order.user && order.user.email ? order.user.email : "customer@example.com";
-    const phone = order.phone ? String(order.phone).replace(/\D/g, "").slice(-10) : "0000000000";
+    const firstname = userObj && userObj.name ? userObj.name : "Customer";
+    const email = userObj && userObj.email ? userObj.email : "customer@example.com";
+    const phone = order.phone ? String(order.phone).replace(/\D/g, "").slice(-10) : (userObj && userObj.phone ? String(userObj.phone).replace(/\D/g, "").slice(-10) : "0000000000");
 
     const surl = `${process.env.BACKEND_URL}/api/payment/payu-webhook`;
     const furl = `${process.env.BACKEND_URL}/api/payment/payu-webhook`;

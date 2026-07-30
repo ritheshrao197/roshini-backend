@@ -161,7 +161,11 @@ class PaymentController {
       }
 
       const provider = paymentService.getProvider(gateway);
-      const payload = await provider.initiatePayment(newOrder);
+      const orderForPayment = {
+        ...newOrder.toObject(),
+        user: userObj
+      };
+      const payload = await provider.initiatePayment(orderForPayment);
 
       return res.status(200).json({
         success: true,
