@@ -115,19 +115,29 @@ ${itemsText}`;
       const env = process.env.NODE_ENV || "production";
       const timestamp = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
+      const frontendUrl = process.env.FRONTEND_URL || "https://roshini-frontend.vercel.app";
+      const backendUrl = process.env.BACKEND_URL || "https://roshini-backend.onrender.com";
+      const repoUrl = "https://github.com/ritheshrao197/roshini-backend";
+
       const message = 
 `🚀 <b>New Build Release Deployed!</b>
 
 <b>Backend Version:</b> v${escapeHtml(String(version))}
 <b>Environment:</b> ${escapeHtml(String(env))}
 <b>Deployed At:</b> ${escapeHtml(String(timestamp))}
-<b>Status:</b> ✅ Server Active & Healthy`;
+<b>Status:</b> ✅ Server Active & Healthy
+
+🔗 <b>Build & Deployment Links:</b>
+🌐 <a href="${frontendUrl}">Live Storefront</a>
+⚙️ <a href="${backendUrl}">Live Backend API</a>
+📦 <a href="${repoUrl}">GitHub Repository</a>`;
 
       const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
       await axios.post(url, {
         chat_id: chatId,
         text: message,
-        parse_mode: "HTML"
+        parse_mode: "HTML",
+        disable_web_page_preview: true
       });
       console.log(`[TelegramService] Deployment notification sent for version v${version}`);
     } catch (err) {
